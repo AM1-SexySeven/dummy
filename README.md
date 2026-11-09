@@ -96,7 +96,7 @@ una superioridad técnica evidente.
 
 - ✅ **Entorno verificado** — Flutter 3.47.9, Android SDK 36.0.0 y emulador
   **Pixel_6** en Windows 11; `flutter doctor` y `flutter analyze` sin problemas;
-  tests 2/2 pasando.
+  tests 15/15 pasando (30 verificaciones).
 - ✅ **Interfaz funcional** — pantalla de bienvenida con logo, marca del
   negocio y botón «Ver negocio», construida con `Scaffold` y Material 3.
 - ✅ **Catálogo** — el negocio muestra sus platos desde la base de datos.
