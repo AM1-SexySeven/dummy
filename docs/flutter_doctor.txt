@@ -1,0 +1,39 @@
+﻿[ÔêÜ] Flutter (Channel stable, 3.47.9, on Microsoft Windows [Versi┬ón 10.0.26300.9711], locale es-MX) [534ms]
+    ÔÇó Flutter version 3.47.9 on channel stable at C:\flutter
+    ÔÇó Upstream repository https://github.com/flutter/flutter.git
+    ÔÇó Framework revision c197ca5199 (9 days ago), 2026-10-29 10:10:20 -0400
+    ÔÇó Engine revision 89c39edfdf
+    ÔÇó Dart version 3.13.7
+    ÔÇó DevTools version 2.60.0
+    ÔÇó Feature flags: enable-web, enable-linux-desktop, enable-macos-desktop, enable-windows-desktop, enable-android, enable-ios, cli-animations, enable-native-assets, enable-record-use, enable-swift-package-manager, omit-legacy-version-file, enable-lldb-debugging, enable-uiscene-migration
+
+[ÔêÜ] Windows Version (Windows 11 or higher, 26H2, 2009) [1,445ms]
+
+[ÔêÜ] Android toolchain - develop for Android devices (Android SDK version 36.0.0) [3.4s]
+    ÔÇó Android SDK at C:\Users\user\AppData\Local\Android\sdk
+    ÔÇó Emulator version 36.6.11.0 (build_id 15507667) (CL:N/A)
+    ÔÇó Platform android-36.1, build-tools 36.0.0
+    ÔÇó Java binary at: C:\Program Files\Android\Android Studio\jbr\bin\java
+      This is the JDK bundled with the latest Android Studio installation on this machine.
+      To manually set the JDK path, use: `flutter config --jdk-dir="path/to/jdk"`.
+    ÔÇó Java version OpenJDK Runtime Environment (build 21.0.10+-14961533-b1163.108)
+    ÔÇó All Android licenses accepted.
+
+[ÔêÜ] Chrome - develop for the web [167ms]
+    ÔÇó Chrome at C:\Program Files\Google\Chrome\Application\chrome.exe
+
+[ÔêÜ] Visual Studio - develop Windows apps (Visual Studio Community 2026 18.7.2) [165ms]
+    ÔÇó Visual Studio at C:\Program Files\Microsoft Visual Studio\18\Community
+    ÔÇó Visual Studio Community 2026 version 18.7.11919.86
+    ÔÇó Windows 10 SDK version 10.0.26100.0
+
+[ÔêÜ] Connected device (4 available) [674ms]
+    ÔÇó sdk gphone16k x86 64 (mobile) ÔÇó emulator-5554 ÔÇó android-x64    ÔÇó Android 17 (API 37) (emulator)
+    ÔÇó Windows (desktop)             ÔÇó windows       ÔÇó windows-x64    ÔÇó Microsoft Windows [Versi┬ón 10.0.26300.9711]
+    ÔÇó Chrome (web)                  ÔÇó chrome        ÔÇó web-javascript ÔÇó Google Chrome 156.0.8078.80
+    ÔÇó Edge (web)                    ÔÇó edge          ÔÇó web-javascript ÔÇó Microsoft Edge 156.0.4314.58
+
+[ÔêÜ] Network resources [4.5s]
+    ÔÇó All expected network resources are available.
+
+ÔÇó No issues found!

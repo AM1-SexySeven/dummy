@@ -36,7 +36,7 @@ class ConectaCruzApp extends StatelessWidget {
 }
 
 /// Pantalla de bienvenida de ConectaCruz.
-/// Título + logo del negocio + botón «Ver negocios» + sesión de usuario.
+/// Título + logo del negocio + botón «Ver negocio» + sesión de usuario.
 class BienvenidaPage extends StatelessWidget {
   const BienvenidaPage({super.key});
 
@@ -149,7 +149,7 @@ class BienvenidaPage extends StatelessWidget {
                   label: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 14.0),
                     child: Text(
-                      'Ver negocios',
+                      'Ver negocio',
                       style: TextStyle(fontSize: 16),
                     ),
                   ),

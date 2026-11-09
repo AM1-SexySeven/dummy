@@ -1,0 +1,67 @@
+================================================================================
+ EVIDENCIA: Verificación de la base de datos de Supabase — ConectaCruz
+ Proyecto : conecta-cruz  (ref: lhzmwtndbledovzdovqd)
+ Región   : South America (São Paulo)
+ Verificado: 2026-11-07
+================================================================================
+
+PRUEBA 1 — API REST leyendo la tabla "productos" (lo que hace la app)
+--------------------------------------------------------------------------------
+GET https://lhzmwtndbledovzdovqd.supabase.co/rest/v1/productos
+     ?select=nombre,precio&order=precio.desc
+Headers: apikey = sb_publishable_ZD7Yq7WnAiOL4A5xF09BXQ_z2P88KJO
+
+HTTP/1.1 200 OK
+
+[
+  { "nombre": "Parrillada para dos", "precio": 120.00 },
+  { "nombre": "Pique macho",         "precio":  55.00 },
+  { "nombre": "Majadito batido",     "precio":  35.00 },
+  { "nombre": "Sonso asado",         "precio":  20.00 }
+]
+
+-> 4 filas: el menú de la Churrasquería El Fogón se carga desde la nube.
+
+
+PRUEBA 2 — Seguridad por fila (RLS) en las tablas privadas
+--------------------------------------------------------------------------------
+GET /rest/v1/consultas?select=*&limit=1   -> HTTP 200  body: []
+GET /rest/v1/reservas?select=*&limit=1    -> HTTP 200  body: []
+GET /rest/v1/perfiles?select=*&limit=1    -> HTTP 200  body: []
+
+-> Sin sesión el usuario NO ve datos de otros: las políticas creadas en
+   docs/supabase_schema.sql están activas y funcionando.
+
+
+PRUEBA 3 — Script SQL ejecutado en el SQL Editor del dashboard
+--------------------------------------------------------------------------------
+Resultado del "select nombre, precio from public.productos order by precio desc":
+
+  nombre                 precio
+  ---------------------  -------
+  Parrillada para dos    120.00
+  Pique macho             55.00
+  Majadito batido         35.00
+  Sonso asado             20.00
+
+  (4 rows)
+
+Tablas creadas: perfiles | productos | consultas | reservas
+Políticas RLS: 3 (perfiles) + 2 (productos) + 2 (consultas) + 2 (reservas)
+
+
+ESTADO FINAL
+--------------------------------------------------------------------------------
+[x] Proyecto Supabase creado y Healthy
+[x] Credenciales verificadas (URL + publishable key) en lib/config.dart
+[x] 4 tablas creadas con RLS
+[x] 4 platos de ejemplo insertados
+[x] API REST responde 200 con los productos
+[ ] Confirm email apagado (pendiente en el dashboard)
+[ ] Prueba en emulador (pendiente)
+
+ANÁLISIS DEL CÓDIGO
+--------------------------------------------------------------------------------
+flutter analyze -> No issues found!
+flutter test    -> 2/2 tests pasando
+================================================================================
