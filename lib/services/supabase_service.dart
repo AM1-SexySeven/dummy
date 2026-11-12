@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
@@ -36,7 +40,29 @@ class Producto {
       precio: 35,
     ),
   ];
+
+  /// Map para guardar el producto en el caché local (offline).
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'nombre': nombre,
+        'descripcion': descripcion,
+        'precio': precio,
+      };
 }
+
+/// Resultado de cargar el catálogo: los productos y si vienen
+/// de la base de datos o del caché local (sin conexión).
+class CatalogoResult {
+  const CatalogoResult({required this.productos, required this.desdeCache});
+
+  final List<Producto> productos;
+
+  /// true cuando la base de datos no respondió y se usaron
+  /// los productos guardados en el dispositivo (modo offline).
+  final bool desdeCache;
+}
+
+const _claveCacheProductos = 'cache_productos_v1';
 
 /// Punto único de acceso a Supabase (auth + base de datos).
 ///
@@ -47,6 +73,11 @@ class SupabaseService {
   SupabaseService._();
 
   static SupabaseClient? _client;
+
+  /// true cuando Supabase terminó de inicializarse
+  /// (o cuando no está configurado: la app entra en «modo demo»).
+  static final ValueNotifier<bool> listo =
+      ValueNotifier<bool>(SupabaseConfig.sinConfigurar);
 
   /// Cliente de Supabase, o null si no está configurado/Inicializado.
   static SupabaseClient? get client => _client;
@@ -60,14 +91,19 @@ class SupabaseService {
   /// Usuario con sesión (null si no hay sesión o no hay Supabase).
   static User? get usuario => _client?.auth.currentSession?.user;
 
-  /// Llamar una sola vez desde `main()` antes de `runApp`.
+  /// Llamar desde `main()` sin esperarla: la app muestra la bienvenida
+  /// de inmediato y [listo] avisa cuando el cliente está disponible.
   static Future<void> init() async {
-    if (SupabaseConfig.sinConfigurar) return;
+    if (SupabaseConfig.sinConfigurar) {
+      listo.value = true;
+      return;
+    }
     await Supabase.initialize(
       url: SupabaseConfig.url,
       publishableKey: SupabaseConfig.anonKey,
     );
     _client = Supabase.instance.client;
+    listo.value = true;
   }
 
   // ---------------------------------------------------------------- auth
@@ -99,16 +135,56 @@ class SupabaseService {
 
   // ------------------------------------------------------------ productos
 
+  /// Guarda los productos en el dispositivo (para el modo offline).
+  static Future<void> _guardarCache(List<Producto> productos) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final json = productos.map((p) => p.toMap()).toList();
+      await prefs.setString(_claveCacheProductos, jsonEncode(json));
+    } catch (_) {
+      // El caché es un extra: cualquier fallo se ignora.
+    }
+  }
+
+  /// Lee los productos guardados en el dispositivo (o null si no hay).
+  static Future<List<Producto>?> _leerCache() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_claveCacheProductos);
+      if (raw == null) return null;
+      final lista = jsonDecode(raw) as List;
+      return lista
+          .map((e) => Producto.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Carga los productos desde Supabase.
   /// Sin configurar → devuelve los datos de ejemplo.
-  static Future<List<Producto>> cargarProductos() async {
+  /// Si la base de datos no responde → devuelve el caché local si existe
+  /// (`desdeCache: true`) o lanza la excepción (error en pantalla).
+  static Future<CatalogoResult> cargarProductos() async {
     final c = _client;
-    if (c == null) return Producto.ejemplos;
+    if (c == null) {
+      return const CatalogoResult(productos: Producto.ejemplos, desdeCache: false);
+    }
 
-    final data = await c.from('productos').select().order('created_at');
-    return (data as List)
-        .map((fila) => Producto.fromMap(fila as Map<String, dynamic>))
-        .toList();
+    try {
+      final data = await c.from('productos').select().order('created_at');
+      final lista = (data as List)
+          .map((fila) => Producto.fromMap(Map<String, dynamic>.from(fila as Map)))
+          .toList();
+      await _guardarCache(lista);
+      return CatalogoResult(productos: lista, desdeCache: false);
+    } catch (_) {
+      final cache = await _leerCache();
+      if (cache != null && cache.isNotEmpty) {
+        return CatalogoResult(productos: cache, desdeCache: true);
+      }
+      rethrow;
+    }
   }
 
   static Future<void> agregarProducto({

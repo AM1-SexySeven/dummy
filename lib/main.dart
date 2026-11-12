@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,13 +7,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'pages/agregar_producto_page.dart';
 import 'pages/consulta_page.dart';
 import 'pages/login_page.dart';
+import 'pages/producto_detalle_page.dart';
 import 'pages/reserva_page.dart';
 import 'services/supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseService.init();
+  // La bienvenida sale de inmediato; Supabase se inicializa en segundo plano.
   runApp(const ConectaCruzApp());
+  unawaited(SupabaseService.init());
 }
 
 class ConectaCruzApp extends StatelessWidget {
@@ -50,20 +53,29 @@ class BienvenidaPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final client = SupabaseService.client;
 
-    // Con Supabase: se redibuja al cambiar la sesión (entrar/salir).
-    // Sin Supabase (modo demo): se dibuja una sola vez.
-    if (client == null) {
-      return _pagina(context, theme, usuario: null, sinConfigurar: true);
-    }
+    // Se redibuja sola cuando Supabase termina de inicializarse.
+    return ValueListenableBuilder<bool>(
+      valueListenable: SupabaseService.listo,
+      builder: (context, listo, _) {
+        final client = SupabaseService.client;
 
-    return StreamBuilder<AuthState>(
-      stream: client.auth.onAuthStateChange,
-      builder: (context, snap) {
-        final sesion = snap.data?.session ?? client.auth.currentSession;
-        return _pagina(context, theme,
-            usuario: sesion?.user, sinConfigurar: false);
+        // Con Supabase: se redibuja al cambiar la sesión (entrar/salir).
+        // Sin Supabase (modo demo): se dibuja una sola vez.
+        if (client == null) {
+          // `sinConfigurar` solo cuando ya sabemos que no hay Supabase,
+          // no mientras todavía está inicializando.
+          return _pagina(context, theme, usuario: null, sinConfigurar: listo);
+        }
+
+        return StreamBuilder<AuthState>(
+          stream: client.auth.onAuthStateChange,
+          builder: (context, snap) {
+            final sesion = snap.data?.session ?? client.auth.currentSession;
+            return _pagina(context, theme,
+                usuario: sesion?.user, sinConfigurar: false);
+          },
+        );
       },
     );
   }
@@ -233,32 +245,20 @@ class NegocioPage extends StatefulWidget {
 }
 
 class _NegocioPageState extends State<NegocioPage> {
-  List<Producto> _productos = Producto.ejemplos;
-  bool _cargando = true;
+  // El Future se crea UNA sola vez aquí (no en build):
+  // así no se repite la consulta a la base de datos.
+  late Future<CatalogoResult> _futuro;
 
   @override
   void initState() {
     super.initState();
-    _cargar();
+    _futuro = _crearFuturo();
   }
 
-  Future<void> _cargar() async {
-    try {
-      final lista = await SupabaseService.cargarProductos();
-      if (!mounted) return;
-      setState(() {
-        _productos = lista;
-        _cargando = false;
-      });
-    } catch (_) {
-      // Sin conexión o tabla inexistente: mostramos los de ejemplo.
-      if (!mounted) return;
-      setState(() {
-        _productos = Producto.ejemplos;
-        _cargando = false;
-      });
-    }
-  }
+  Future<CatalogoResult> _crearFuturo() => SupabaseService.cargarProductos();
+
+  /// Vuelve a consultar (botón «Reintentar» o tras añadir un plato).
+  void _reintentar() => setState(() => _futuro = _crearFuturo());
 
   /// Abre una pantalla; si hay Supabase pero no hay sesión, pide login antes.
   Future<void> _abrir(Widget pagina) async {
@@ -274,7 +274,18 @@ class _NegocioPageState extends State<NegocioPage> {
       context,
       MaterialPageRoute(builder: (_) => pagina),
     );
-    if (res == true) _cargar(); // se añadió un plato: refrescamos la lista
+    if (res == true) _reintentar(); // se añadió un plato: refrescamos la lista
+  }
+
+  /// Abre el detalle del plato; desde ahí puede ir a Consultar o Reservar.
+  Future<void> _abrirDetalle(Producto p) async {
+    final accion = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => ProductoDetallePage(producto: p)),
+    );
+    if (!mounted || accion == null) return;
+    if (accion == 'consultar') await _abrir(const ConsultaPage());
+    if (accion == 'reservar') await _abrir(const ReservaPage());
   }
 
   @override
@@ -360,18 +371,70 @@ class _NegocioPageState extends State<NegocioPage> {
           ),
           const SizedBox(height: 8),
 
-          if (_cargando)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_productos.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: Text('Aún no hay platos en el menú')),
-            )
-          else
-            for (final p in _productos) _ProductoTile(producto: p),
+          FutureBuilder<CatalogoResult>(
+            future: _futuro,
+            builder: (context, snap) {
+              // Estado "cargando"
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              // Estado "error" (y no hay nada guardado en el dispositivo)
+              if (!snap.hasData) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    children: [
+                      Icon(Icons.cloud_off_rounded,
+                          size: 48, color: theme.colorScheme.outline),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No se pudo cargar el menú',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Revise su conexión a Internet e intente de nuevo.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: _reintentar,
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('Reintentar'),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              final catalogo = snap.data!;
+              // Estado "vacío"
+              if (catalogo.productos.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: Text('Aún no hay platos en el menú')),
+                );
+              }
+              // Estado "con datos" (en línea o desde el caché offline)
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (catalogo.desdeCache) ...[
+                    _CacheNotice(onRetry: _reintentar),
+                    const SizedBox(height: 8),
+                  ],
+                  for (final p in catalogo.productos)
+                    _ProductoTile(
+                      producto: p,
+                      onTap: () => _abrirDetalle(p),
+                    ),
+                ],
+              );
+            },
+          ),
 
           const SizedBox(height: 24),
 
@@ -413,6 +476,40 @@ class _NegocioPageState extends State<NegocioPage> {
   }
 }
 
+class _CacheNotice extends StatelessWidget {
+  const _CacheNotice({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      color: theme.colorScheme.secondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 20),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Sin conexión — mostrando los últimos platos guardados',
+                style: TextStyle(fontSize: 13),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _DatoRow extends StatelessWidget {
   final IconData icon;
   final String texto;
@@ -433,8 +530,9 @@ class _DatoRow extends StatelessWidget {
 
 class _ProductoTile extends StatelessWidget {
   final Producto producto;
+  final VoidCallback onTap;
 
-  const _ProductoTile({required this.producto});
+  const _ProductoTile({required this.producto, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -445,18 +543,27 @@ class _ProductoTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
+        onTap: onTap,
         leading: const Icon(Icons.restaurant_menu_rounded),
         title: Text(
           producto.nombre,
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(producto.descripcion),
-        trailing: Text(
-          precio,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.primary,
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              precio,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded,
+                color: theme.colorScheme.outline),
+          ],
         ),
       ),
     );

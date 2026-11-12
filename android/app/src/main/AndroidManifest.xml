@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permiso para que la app se conecte a Supabase -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="conecta_cruz"
+        android:label="El Fogón"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

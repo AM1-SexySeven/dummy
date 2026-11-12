@@ -5,6 +5,8 @@ import 'package:conecta_cruz/main.dart';
 import 'package:conecta_cruz/pages/agregar_producto_page.dart';
 import 'package:conecta_cruz/pages/consulta_page.dart';
 import 'package:conecta_cruz/pages/login_page.dart';
+import 'package:conecta_cruz/pages/producto_detalle_page.dart';
+import 'package:conecta_cruz/services/supabase_service.dart';
 import 'package:conecta_cruz/pages/registro_page.dart';
 import 'package:conecta_cruz/pages/reserva_page.dart';
 
@@ -245,5 +247,70 @@ void main() {
     await tester.pump();
 
     expect(find.text('Ingrese un precio válido (ej: 45.50)'), findsOneWidget);
+  });
+
+  // --------------------------------------------- 16. Detalle de plato
+  testWidgets('Detalle: muestra nombre, descripci?n, precio y acciones', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ProductoDetallePage(
+          producto: Producto(
+            nombre: 'Pique macho',
+            descripcion: 'Carne, papas fritas, huevo y llajua',
+            precio: 55,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Detalle del plato'), findsOneWidget);
+    expect(find.text('Pique macho'), findsOneWidget);
+    expect(find.text('Carne, papas fritas, huevo y llajua'), findsOneWidget);
+    expect(find.text('Bs 55,00'), findsOneWidget);
+    expect(find.text('Consultar sobre este plato'), findsOneWidget);
+    expect(find.text('Reservar para comer'), findsOneWidget);
+  });
+
+  // ----------------------------------- 17. Cat?logo -> detalle de plato
+  testWidgets('Cat?logo: tocar un plato abre su pantalla de detalle', (
+    WidgetTester tester,
+  ) async {
+    await tester.binding.setSurfaceSize(_pantalla);
+    await tester.pumpWidget(const ConectaCruzApp());
+
+    await tester.tap(find.text('Ver negocio'));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Parrillada para dos'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Parrillada para dos'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Detalle del plato'), findsOneWidget);
+    expect(find.text('Bs 120,00'), findsOneWidget);
+  });
+
+  // -------------------------- 18. Validaci?n fecha/hora en la reserva
+  testWidgets('Reserva: fecha u hora pasadas se rechazan', (
+    WidgetTester tester,
+  ) async {
+    final ayer = DateTime.now().subtract(const Duration(days: 1));
+    final manana = DateTime.now().add(const Duration(days: 1));
+
+    expect(
+      ReservaPage.fechaHoraValida(ayer, const TimeOfDay(hour: 20, minute: 0)),
+      isFalse,
+    );
+    expect(
+      ReservaPage.fechaHoraValida(manana, const TimeOfDay(hour: 20, minute: 0)),
+      isTrue,
+    );
   });
 }

@@ -6,6 +6,13 @@ import '../services/supabase_service.dart';
 class ReservaPage extends StatefulWidget {
   const ReservaPage({super.key});
 
+  /// true cuando la combinación fecha+hora es futura.
+  static bool fechaHoraValida(DateTime fecha, TimeOfDay hora) {
+    final elegido =
+        DateTime(fecha.year, fecha.month, fecha.day, hora.hour, hora.minute);
+    return elegido.isAfter(DateTime.now());
+  }
+
   @override
   State<ReservaPage> createState() => _ReservaPageState();
 }
@@ -49,6 +56,15 @@ class _ReservaPageState extends State<ReservaPage> {
   }
 
   Future<void> _enviar() async {
+    // No se pueden reservar fechas u horas que ya pasaron.
+    if (!ReservaPage.fechaHoraValida(_fecha, _hora)) {
+      setState(() {
+        _enviando = false;
+        _error = 'La fecha y hora elegidas ya pasaron. Elija una fecha futura.';
+      });
+      return;
+    }
+
     setState(() {
       _enviando = true;
       _error = null;
