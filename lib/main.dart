@@ -248,11 +248,19 @@ class _NegocioPageState extends State<NegocioPage> {
   // El Future se crea UNA sola vez aquí (no en build):
   // así no se repite la consulta a la base de datos.
   late Future<CatalogoResult> _futuro;
+  final _buscarCtrl = TextEditingController();
+  String _filtro = '';
 
   @override
   void initState() {
     super.initState();
     _futuro = _crearFuturo();
+  }
+
+  @override
+  void dispose() {
+    _buscarCtrl.dispose();
+    super.dispose();
   }
 
   Future<CatalogoResult> _crearFuturo() => SupabaseService.cargarProductos();
@@ -379,6 +387,22 @@ class _NegocioPageState extends State<NegocioPage> {
           ),
           const SizedBox(height: 8),
 
+          // Buscador de platos por nombre
+          TextField(
+            controller: _buscarCtrl,
+            onChanged: (v) =>
+                setState(() => _filtro = v.trim().toLowerCase()),
+            decoration: InputDecoration(
+              hintText: 'Buscar plato...',
+              prefixIcon: const Icon(Icons.search_rounded),
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+
           FutureBuilder<CatalogoResult>(
             future: _futuro,
             builder: (context, snap) {
@@ -426,6 +450,18 @@ class _NegocioPageState extends State<NegocioPage> {
                   child: Center(child: Text('Aún no hay platos en el menú')),
                 );
               }
+              // Filtro de búsqueda por nombre
+              final visibles = catalogo.productos
+                  .where((p) => p.nombre.toLowerCase().contains(_filtro))
+                  .toList();
+              if (visibles.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(
+                    child: Text('Ningún plato coincide con tu búsqueda'),
+                  ),
+                );
+              }
               // Estado "con datos" (en línea o desde el caché offline)
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -434,7 +470,7 @@ class _NegocioPageState extends State<NegocioPage> {
                     _CacheNotice(onRetry: _reintentar),
                     const SizedBox(height: 8),
                   ],
-                  for (final p in catalogo.productos)
+                  for (final p in visibles)
                     _ProductoTile(
                       producto: p,
                       onTap: () => _abrirDetalle(p),
