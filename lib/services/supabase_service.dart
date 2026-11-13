@@ -53,16 +53,25 @@ class Producto {
 /// Resultado de cargar el catálogo: los productos y si vienen
 /// de la base de datos o del caché local (sin conexión).
 class CatalogoResult {
-  const CatalogoResult({required this.productos, required this.desdeCache});
+  const CatalogoResult({
+    required this.productos,
+    required this.desdeCache,
+    this.actualizado,
+  });
 
   final List<Producto> productos;
 
   /// true cuando la base de datos no respondió y se usaron
   /// los productos guardados en el dispositivo (modo offline).
   final bool desdeCache;
+
+  /// Fecha/hora de la última carga exitosa (desde el servidor
+  /// o desde el caché guardado).
+  final DateTime? actualizado;
 }
 
 const _claveCacheProductos = 'cache_productos_v1';
+const _claveCacheFecha = 'cache_productos_fecha';
 
 /// Punto único de acceso a Supabase (auth + base de datos).
 ///
@@ -141,6 +150,8 @@ class SupabaseService {
       final prefs = await SharedPreferences.getInstance();
       final json = productos.map((p) => p.toMap()).toList();
       await prefs.setString(_claveCacheProductos, jsonEncode(json));
+      await prefs.setString(
+          _claveCacheFecha, DateTime.now().toIso8601String());
     } catch (_) {
       // El caché es un extra: cualquier fallo se ignora.
     }
@@ -156,6 +167,18 @@ class SupabaseService {
       return lista
           .map((e) => Producto.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Lee la fecha/hora de la última carga exitosa (o null si no hay).
+  static Future<DateTime?> _leerCacheFecha() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_claveCacheFecha);
+      if (raw == null) return null;
+      return DateTime.tryParse(raw);
     } catch (_) {
       return null;
     }
@@ -177,11 +200,19 @@ class SupabaseService {
           .map((fila) => Producto.fromMap(Map<String, dynamic>.from(fila as Map)))
           .toList();
       await _guardarCache(lista);
-      return CatalogoResult(productos: lista, desdeCache: false);
+      return CatalogoResult(
+        productos: lista,
+        desdeCache: false,
+        actualizado: DateTime.now(),
+      );
     } catch (_) {
       final cache = await _leerCache();
       if (cache != null && cache.isNotEmpty) {
-        return CatalogoResult(productos: cache, desdeCache: true);
+        return CatalogoResult(
+          productos: cache,
+          desdeCache: true,
+          actualizado: await _leerCacheFecha(),
+        );
       }
       rethrow;
     }

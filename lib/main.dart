@@ -463,9 +463,22 @@ class _NegocioPageState extends State<NegocioPage> {
                 );
               }
               // Estado "con datos" (en línea o desde el caché offline)
+              final actualizado = catalogo.actualizado;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (actualizado != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        'Actualizado: ${actualizado.day}/${actualizado.month} '
+                        '${actualizado.hour}:${actualizado.minute.toString().padLeft(2, '0')}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.outline,
+                        ),
+                      ),
+                    ),
                   if (catalogo.desdeCache) ...[
                     _CacheNotice(onRetry: _reintentar),
                     const SizedBox(height: 8),
