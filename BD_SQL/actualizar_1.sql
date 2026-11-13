@@ -1,0 +1,28 @@
+-- =====================================================================
+--  actualizar_1 · (PLANTILLA) Ejemplo de cómo documentar un cambio
+--  Ejecutar en: Supabase → SQL Editor → New query → Run
+-- =====================================================================
+--
+--  Fecha:   dd/11/2026
+--  Autor:   nombre del integrante
+--  Qué hace: ejemplo — agrega la columna 'categoria' al menú
+--
+--  Para cambios reales, copia este archivo como actualizar_2.sql,
+--  actualizar_3.sql... y escribe el cambio en vez del ejemplo.
+-- ---------------------------------------------------------------------
+--  EJEMPLO (no ejecutar tal cual si no se necesita):
+--
+--  alter table public.productos
+--    add column categoria text not null default 'plato';
+--
+--  update public.productos set categoria = 'bebidas'
+--  where nombre in ('Sonso asado');
+--
+--  insert into public.productos (nombre, descripcion, precio) values
+--    ('Limonada de la casa', 'Limonada con hierbabuena', 15.00);
+--
+--  insert into public.productos_acciones ...
+--  (ejemplo de cómo añadir una tabla nueva: usar
+--   begin; ... create table ...; alter table ... enable row level security;
+--   ...políticas...; commit;)
+-- =====================================================================
