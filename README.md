@@ -124,6 +124,18 @@ flutter run        # o presionar Run ▶ en Android Studio
 Dispositivo destino recomendado: **Emulador Pixel_6** (Android Studio →
 Tools → Device Manager). iOS requiere una Mac.
 
+## Comportamiento sin conexión (offline)
+
+La app funciona también sin internet gracias a una **copia local del menú**:
+
+1. **Con internet**, el catálogo lee los platos desde **Supabase** y, al terminar, guarda una copia en el teléfono (`SharedPreferences`) junto con la fecha de la última actualización.
+2. **Sin internet**, si ya se cargó al menos una vez, muestra esa copia con el aviso **«Sin conexión — mostrando los últimos platos guardados»** en el catálogo.
+3. **Primera vez sin internet** (nunca se cargó), muestra la pantalla de error con el botón **«Reintentar»**.
+
+Cómo probarlo: activar el **modo avión** del emulador/teléfono → abrir «Ver negocio» → observar el aviso o la pantalla de error. Al desactivar el modo avión y pulsar «Reintentar», vuelve a cargar desde Supabase y actualiza la copia local.
+
+Las operaciones de **consulta y reserva** requieren conexión e inicio de sesión: en modo offline la app informa el error de red en lugar de simular el envío.
+
 ## Alcance del documento y fuentes
 
 Este README resume la defensa del proyecto; la metodología completa —el
