@@ -296,6 +296,14 @@ class _NegocioPageState extends State<NegocioPage> {
       appBar: AppBar(
         title: const Text('Churrasquería El Fogón'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _reintentar,
+            tooltip: 'Actualizar',
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
