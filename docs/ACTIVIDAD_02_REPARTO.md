@@ -21,7 +21,7 @@
   - El menú (`productos`) se **lee** sin sesión (público).
   - `consultas`/`reservas` solo las **ve su dueño** (`auth.uid() = user_id`).
   - Nadie puede modificar/borrar registros ajenos.
-- Scripts listos para recrear la base desde cero en `supabase/` (`01_tablas`, `02_rls_lectura`, `02b_datos_semilla`, `03_escritura_publica`) + README con el orden de ejecución.
+- Scripts listos para recrear la base desde cero en `BD_SQL/` (`01_tablas`, `02_rls_lectura`, `02b_datos_semilla`, `03_escritura_publica`, `04_seguridad_extra`) + README con el orden de ejecución.
 
 ### Qué se hizo en el commit de Marco (Paso 1)
 > **Commit de Marco Antonio Kiataque Uchima** — `feat(actividad02): catalogo con datos reales, offline, detalle de plato y dart-define`
@@ -35,7 +35,7 @@
 | 5 | **Reservas con fecha/hora validadas** | `lib/pages/reserva_page.dart` | Rechaza **fecha u hora que ya pasaron** (`ReservaPage.fechaHoraValida`, pública y testeable) y bloquea el botón de envío mientras se envía. |
 | 6 | **Credenciales por `--dart-define`** | `lib/config.dart` | `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` se pueden sobreescribir al compilar (`--dart-define=SUPABASE_URL=...`). Los valores actuales son el respaldo para que la app funcione tal cual. |
 | 7 | **Permiso INTERNET en Android** | `android/app/src/main/AndroidManifest.xml` | Exigido por el taller (slide 18) para conectarse a Supabase. |
-| 8 | **SQL adaptado al esquema propio** | `supabase/01..03*.sql` + `README.md` | Scripts para crear tablas, RLS, datos semilla (4 platos) y políticas de escritura, distintos a los del taller. |
+| 8 | **SQL adaptado al esquema propio** | `BD_SQL/00..04*.sql` + `README.md` | Scripts para crear tablas, RLS, datos semilla (4 platos) y políticas de escritura, distintos a los del taller. |
 | 9 | **Tests** | `test/widget_test.dart` | **18/18 tests pasan** (`flutter test`), `flutter analyze` limpio, APK debug compilado. |
 
 **En resumen, tu commit cubre:** Criterio 1 (conexión + RLS + `--dart-define`), Criterio 2 (validación fecha/hora + botón bloqueado) y Criterio 3 (FutureBuilder con 4 estados, Future único, navegación catálogo→detalle, comportamiento offline documentado/implementado).
@@ -80,8 +80,10 @@
 - **Resultado:** el usuario sabe cuán fresco es el menú — detalle que valora la rúbrica de "consultas reales".
 - **Mensaje de commit:** `feat(catalogo): muestra ultima actualizacion del menu`
 
-### Anderson 2 — Script SQL `supabase/04_seguridad_extra.sql`
-- **Archivo (nuevo):** `supabase/04_seguridad_extra.sql`
+### Anderson 2 — Script SQL `BD_SQL/04_seguridad_extra.sql` (YA HECHO por Anderson)
+
+> Puntero: el archivo vive en `BD_SQL/04_seguridad_extra.sql`.
+- **Archivo (nuevo):** `BD_SQL/04_seguridad_extra.sql`
 - **Qué hacer:** agrega una política de **borrado prohibido para clientes** y una vista de solo lectura. Ejemplo:
   ```sql
   -- 04 · Seguridad adicional (ejecutar después de 03)
@@ -93,7 +95,7 @@
   create policy "productos: sin borrado" on public.productos
     for delete using (false);
   ```
-  Actualiza también `supabase/README.md` añadiendo la fila del archivo 04 en la tabla. **Sin contraseñas ni claves `service_role`** (nunca van al repo).
+  Actualiza también `BD_SQL/README.md` añadiendo la fila del archivo 04 en la tabla. **Sin contraseñas ni claves `service_role`** (nunca van al repo).
 - **Resultado:** base de datos más robusta para la demo del RLS (evidencia de rúbrica, Criterio 1).
 - **Mensaje de commit:** `feat(supabase): script 04 politica de borrado y vista menu_del_dia`
 
