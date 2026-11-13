@@ -578,6 +578,13 @@ class _ProductoTile extends StatelessWidget {
 
   const _ProductoTile({required this.producto, required this.onTap});
 
+  /// Color del precio según el rango (Luis).
+  static Color _colorPrecio(double precio) {
+    if (precio <= 50) return Colors.green.shade700;
+    if (precio <= 100) return Colors.orange.shade800;
+    return Colors.red.shade700;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -588,7 +595,13 @@ class _ProductoTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
         onTap: onTap,
-        leading: const Icon(Icons.restaurant_menu_rounded),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFF9F2E0),
+          child: Icon(
+            Icons.local_fire_department_rounded,
+            color: theme.colorScheme.primary,
+          ),
+        ),
         title: Text(
           producto.nombre,
           style: const TextStyle(fontWeight: FontWeight.w600),
@@ -601,7 +614,7 @@ class _ProductoTile extends StatelessWidget {
               precio,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: theme.colorScheme.primary,
+                color: _colorPrecio(producto.precio),
               ),
             ),
             const SizedBox(width: 4),
