@@ -313,4 +313,20 @@ void main() {
       isTrue,
     );
   });
+
+  // ----------------------------------- 19. Producto.fromMap lee imagen_url
+  test('Producto.fromMap lee imagen_url de Supabase Storage', () {
+    final p = Producto.fromMap({
+      'id': 7,
+      'nombre': 'Sonso asado',
+      'descripcion': 'Maíz y queso a la brasa',
+      'precio': 20,
+      'imagen_url':
+          'https://lhzmwtndbledovzdovqd.supabase.co/storage/v1/object/public/menu-fotos/sonso.jpg',
+    });
+    expect(p.id, '7');
+    expect(p.precio, 20.0);
+    expect(p.fotoUrl, contains('menu-fotos/sonso.jpg'));
+    expect(Producto(nombre: 'x', descripcion: 'y', precio: 1).fotoUrl, isEmpty);
+  });
 }

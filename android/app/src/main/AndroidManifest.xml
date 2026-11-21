@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Permiso para que la app se conecte a Supabase -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Permiso para dictar el buscador con la voz -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="El Fogón"
         android:name="${applicationName}"
@@ -42,6 +44,17 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- Para abrir WhatsApp y enlaces https desde la app -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <category android:name="android.intent.category.BROWSABLE"/>
+            <data android:scheme="https"/>
+        </intent>
+        <!-- Para llamar al negocio desde la app -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="tel"/>
         </intent>
     </queries>
 </manifest>

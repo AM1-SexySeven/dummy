@@ -1,18 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
+import '../widgets/foto_plato.dart';
 
 /// Pantalla de detalle de un plato del catálogo.
 ///
 /// Consultar/Reservar devuelven el resultado (`consultar` / `reservar`)
 /// al catálogo, que decide pedir sesión antes de abrir el formulario.
-class ProductoDetallePage extends StatelessWidget {
+class ProductoDetallePage extends StatefulWidget {
   const ProductoDetallePage({super.key, required this.producto});
 
   final Producto producto;
 
   @override
+  State<ProductoDetallePage> createState() => _ProductoDetallePageState();
+}
+
+class _ProductoDetallePageState extends State<ProductoDetallePage> {
+  /// La información vigente del negocio (tel/WhatsApp) la carga Supabase;
+  /// si no hay internet, el caché local o el respaldo.
+  late final Future<InfoNegocio> _negocio = SupabaseService.cargarNegocio();
+
+  /// Abre una URL externa (teléfono / WhatsApp) sin crashear si falla.
+  Future<void> _abrir(BuildContext context, Uri url) async {
+    final ok = await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la aplicación')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final producto = widget.producto;
     final theme = Theme.of(context);
     final precio =
         'Bs ${producto.precio.toStringAsFixed(2).replaceAll('.', ',')}';
@@ -28,10 +50,12 @@ class ProductoDetallePage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Icon(
-                Icons.restaurant_menu_rounded,
-                size: 64,
-                color: theme.colorScheme.primary,
+              Center(
+                child: FotoPlato(
+                  fotoUrl: producto.fotoUrl,
+                  tamano: 240,
+                  forma: FotoForma.cuadrado,
+                ),
               ),
               const SizedBox(height: 16),
               Text(
@@ -104,6 +128,69 @@ class ProductoDetallePage extends StatelessWidget {
                   padding: EdgeInsets.symmetric(vertical: 14),
                   child: Text('Reservar para comer'),
                 ),
+              ),
+              const SizedBox(height: 10),
+              // Contacto directo: usa el número vigente guardado en Supabase
+              FutureBuilder<InfoNegocio>(
+                future: _negocio,
+                builder: (context, snap) {
+                  final info = snap.data ?? InfoNegocio.actual;
+                  final numero = info.numeroWa;
+                  return Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: () => _abrir(
+                          context,
+                          Uri(scheme: 'tel', path: numero),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.call_rounded, size: 16),
+                        label: const Text('Llamar',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _abrir(
+                          context,
+                          Uri.parse(
+                            'https://wa.me/$numero?text=${Uri.encodeComponent('Hola 👋, vengo del catálogo de ConectaCruz y quiero hacer un pedido.')}',
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.chat_rounded, size: 16),
+                        label: const Text('WhatsApp',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: () => _abrir(
+                          context,
+                          Uri.parse(
+                            'https://www.google.com/maps/dir/?api=1'
+                            '&destination=-17.7925,-63.1780',
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 8),
+                        ),
+                        icon: const Icon(Icons.directions_rounded, size: 16),
+                        label: const Text('Cómo llegar',
+                            style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
