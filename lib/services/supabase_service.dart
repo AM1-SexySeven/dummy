@@ -98,13 +98,15 @@ class InfoNegocio {
 }
 
 /// Producto de la Churrasquería (fila de la tabla `productos`).
-class Producto {  final String id;
+class Producto {
+  final String id;
   final String nombre;
   final String descripcion;
   final double precio;
 
   /// URL pública de la foto en Supabase Storage (cadena vacía = sin foto).
   final String fotoUrl;
+  final String _categoriaPropia;
 
   const Producto({
     this.id = '',
@@ -112,15 +114,43 @@ class Producto {  final String id;
     required this.descripcion,
     required this.precio,
     this.fotoUrl = '',
-  });
+    String categoria = '',
+  }) : _categoriaPropia = categoria;
 
   factory Producto.fromMap(Map<String, dynamic> map) => Producto(
         id: '${map['id'] ?? ''}',
         nombre: '${map['nombre'] ?? ''}',
         descripcion: '${map['descripcion'] ?? ''}',
         precio: (map['precio'] as num?)?.toDouble() ?? 0,
-        fotoUrl: '${map['imagen_url'] ?? ''}',
+        fotoUrl: '${map['imagen_url'] ?? map['foto_url'] ?? ''}',
+        categoria: '${map['categoria'] ?? ''}',
       );
+
+  /// Categoría gastronómica del plato para filtrado fácil.
+  String get categoria {
+    if (_categoriaPropia.trim().isNotEmpty) return _categoriaPropia.trim();
+    final text = '$nombre $descripcion'.toLowerCase();
+    if (text.contains('chicha') ||
+        text.contains('limonada') ||
+        text.contains('bebida') ||
+        text.contains('gaseosa') ||
+        text.contains('refresco')) {
+      return 'Bebidas';
+    }
+    if (text.contains('sonso') ||
+        text.contains('arroz con queso') ||
+        text.contains('guarnición')) {
+      return 'Guarniciones';
+    }
+    if (text.contains('majadito') ||
+        text.contains('pique') ||
+        text.contains('sopa') ||
+        text.contains('keperí') ||
+        text.contains('típico')) {
+      return 'Platos Típicos';
+    }
+    return 'Parrillas';
+  }
 
   /// Datos de ejemplo, usados cuando Supabase no está configurado.
   static const List<Producto> ejemplos = [
@@ -130,6 +160,7 @@ class Producto {  final String id;
       descripcion: 'Carne de res, chorizo criollo, yuca y ensalada fresca',
       precio: 120,
       fotoUrl: 'assets/images/platos/parrillada.jpg',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-2',
@@ -137,6 +168,7 @@ class Producto {  final String id;
       descripcion: 'Corte jugoso de res a la parrilla servido con papas fritas',
       precio: 75,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-3',
@@ -144,6 +176,7 @@ class Producto {  final String id;
       descripcion: 'Carne salteada, papas fritas, salchichas, huevo frito y llajua',
       precio: 55,
       fotoUrl: 'assets/images/platos/piquemacho.jpg',
+      categoria: 'Platos Típicos',
     ),
     Producto(
       id: 'ejemplo-4',
@@ -151,6 +184,7 @@ class Producto {  final String id;
       descripcion: 'Arroz tostado con charque de res, huevo frito y plátano frito',
       precio: 35,
       fotoUrl: 'assets/images/platos/majadito.jpg',
+      categoria: 'Platos Típicos',
     ),
     Producto(
       id: 'ejemplo-5',
@@ -158,6 +192,7 @@ class Producto {  final String id;
       descripcion: 'Tierno keperí horneado servido con arroz con queso y yuca',
       precio: 50,
       fotoUrl: '',
+      categoria: 'Platos Típicos',
     ),
     Producto(
       id: 'ejemplo-6',
@@ -165,6 +200,7 @@ class Producto {  final String id;
       descripcion: 'Brochetas de carne de res con pimentón y cebolla a las brasas',
       precio: 40,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-7',
@@ -172,6 +208,7 @@ class Producto {  final String id;
       descripcion: 'Pescado de río pacú a la parrilla servido con ensalada criolla',
       precio: 65,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-8',
@@ -179,6 +216,7 @@ class Producto {  final String id;
       descripcion: 'Masa de yuca con queso a las brasas y mantequilla',
       precio: 20,
       fotoUrl: 'assets/images/platos/sonso.jpg',
+      categoria: 'Guarniciones',
     ),
     Producto(
       id: 'ejemplo-9',
@@ -186,6 +224,7 @@ class Producto {  final String id;
       descripcion: 'Sopa cruceña con carne, papas fritas en hilo y arvejas',
       precio: 25,
       fotoUrl: '',
+      categoria: 'Platos Típicos',
     ),
     Producto(
       id: 'ejemplo-10',
@@ -193,6 +232,7 @@ class Producto {  final String id;
       descripcion: 'Bebida artesanal de maíz bien helada',
       precio: 12,
       fotoUrl: '',
+      categoria: 'Bebidas',
     ),
     Producto(
       id: 'ejemplo-11',
@@ -200,6 +240,7 @@ class Producto {  final String id;
       descripcion: 'Corte jugoso a la parrilla con yuca frita y arroz con queso',
       precio: 85,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-12',
@@ -207,6 +248,7 @@ class Producto {  final String id;
       descripcion: 'Costillas ahumadas a las brasas bañadas en salsa BBQ criolla',
       precio: 60,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-13',
@@ -214,6 +256,7 @@ class Producto {  final String id;
       descripcion: 'Tira de asado tierna a las brasas con ensalada de la casa',
       precio: 70,
       fotoUrl: '',
+      categoria: 'Parrillas',
     ),
     Producto(
       id: 'ejemplo-14',
@@ -221,6 +264,7 @@ class Producto {  final String id;
       descripcion: 'Porción generosa de arroz con queso fundido tradicional',
       precio: 18,
       fotoUrl: '',
+      categoria: 'Guarniciones',
     ),
     Producto(
       id: 'ejemplo-15',
@@ -228,6 +272,7 @@ class Producto {  final String id;
       descripcion: 'Limonada natural helada con hojas de menta',
       precio: 10,
       fotoUrl: '',
+      categoria: 'Bebidas',
     ),
   ];
 
@@ -238,6 +283,7 @@ class Producto {  final String id;
         'descripcion': descripcion,
         'precio': precio,
         'imagen_url': fotoUrl,
+        'categoria': categoria,
       };
 }
 
@@ -544,6 +590,7 @@ class SupabaseService {
     required String descripcion,
     required double precio,
     String fotoUrl = '',
+    String categoria = 'Parrillas',
   }) async {
     final c = _clienteObligado();
     final datos = <String, dynamic>{
@@ -551,6 +598,7 @@ class SupabaseService {
       'nombre': nombre,
       'descripcion': descripcion,
       'precio': precio,
+      'categoria': categoria,
       if (fotoUrl.isNotEmpty) 'imagen_url': fotoUrl,
     };
     final res = await c.from('productos').insert(datos).select().maybeSingle();

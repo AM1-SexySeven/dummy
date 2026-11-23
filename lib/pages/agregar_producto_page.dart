@@ -16,6 +16,7 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
   final _nombreCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _precioCtrl = TextEditingController();
+  String _categoriaSeleccionada = 'Parrillas';
   ImageSource? _origenFoto;
   XFile? _fotoSeleccionada;
   bool _guardando = false;
@@ -99,6 +100,7 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
         nombre: nombre,
         descripcion: desc.isEmpty ? 'Plato de Churrasquería El Fogón' : desc,
         precio: precio,
+        categoria: _categoriaSeleccionada,
       );
 
       final productoId = '${productoMap['id'] ?? ''}';
@@ -197,6 +199,28 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
                   prefixIcon: Icon(Icons.attach_money_rounded),
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              DropdownButtonFormField<String>(
+                initialValue: _categoriaSeleccionada,
+                decoration: const InputDecoration(
+                  labelText: 'Categoría gastronómica',
+                  prefixIcon: Icon(Icons.category_rounded),
+                  border: OutlineInputBorder(),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Parrillas', child: Text('🔥 Parrillas')),
+                  DropdownMenuItem(value: 'Platos Típicos', child: Text('🍛 Platos Típicos')),
+                  DropdownMenuItem(value: 'Guarniciones', child: Text('🥗 Guarniciones')),
+                  DropdownMenuItem(value: 'Bebidas', child: Text('🥤 Bebidas')),
+                  DropdownMenuItem(value: 'Postres', child: Text('🍨 Postres')),
+                ],
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() => _categoriaSeleccionada = val);
+                  }
+                },
               ),
               const SizedBox(height: 16),
 

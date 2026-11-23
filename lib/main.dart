@@ -284,6 +284,7 @@ class _NegocioPageState extends State<NegocioPage> {
   late Future<CatalogoResult> _futuro;
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
+  String _categoriaSeleccionada = 'Todos';
 
   // Clima de Santa Cruz (open-meteo) y dictado por voz del buscador
   final _voz = SpeechToText();
@@ -685,6 +686,35 @@ class _NegocioPageState extends State<NegocioPage> {
           ),
           const SizedBox(height: 8),
 
+          // Chips de filtrado por categoría gastronómica
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final cat in const [
+                  'Todos',
+                  '🔥 Parrillas',
+                  '🍛 Platos Típicos',
+                  '🥗 Guarniciones',
+                  '🥤 Bebidas'
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: _categoriaSeleccionada == cat,
+                      onSelected: (sel) {
+                        if (sel) {
+                          setState(() => _categoriaSeleccionada = cat);
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
           FutureBuilder<CatalogoResult>(
             future: _futuro,
             builder: (context, snap) {
@@ -732,11 +762,25 @@ class _NegocioPageState extends State<NegocioPage> {
                   child: Center(child: Text('Aún no hay platos en el menú')),
                 );
               }
-              // Filtro de búsqueda por nombre
-              final visibles = catalogo.productos
-                  .where((p) => Texto.contieneEnAlguno(
-                    [p.nombre, p.descripcion], _filtro))
-                  .toList();
+              // Filtro de búsqueda por nombre y categoría gastronómica
+              final visibles = catalogo.productos.where((p) {
+                final coincideTexto = Texto.contieneEnAlguno(
+                  [p.nombre, p.descripcion],
+                  _filtro,
+                );
+                final catLimpia = _categoriaSeleccionada
+                    .replaceAll(RegExp(r'[^\w\s]'), '')
+                    .trim()
+                    .toLowerCase();
+                final pCatLimpia = p.categoria
+                    .replaceAll(RegExp(r'[^\w\s]'), '')
+                    .trim()
+                    .toLowerCase();
+                final coincideCategoria = _categoriaSeleccionada == 'Todos' ||
+                    pCatLimpia.contains(catLimpia) ||
+                    catLimpia.contains(pCatLimpia);
+                return coincideTexto && coincideCategoria;
+              }).toList();
               if (visibles.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(24),
