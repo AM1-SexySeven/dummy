@@ -1,15 +1,24 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'pages/agregar_producto_page.dart';
 import 'pages/consulta_page.dart';
+import 'pages/cuenta_page.dart';
 import 'pages/login_page.dart';
+import 'pages/mapa_page.dart';
+import 'pages/mi_pedido_page.dart';
 import 'pages/producto_detalle_page.dart';
 import 'pages/reserva_page.dart';
+import 'services/carrito_service.dart';
+import 'services/clima_service.dart';
 import 'services/supabase_service.dart';
+import 'widgets/foto_plato.dart';
+import 'utils/texto.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -251,10 +260,18 @@ class _NegocioPageState extends State<NegocioPage> {
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
 
+  // Clima de Santa Cruz (open-meteo) y dictado por voz del buscador
+  final _voz = SpeechToText();
+  late Future<ClimaResult> _clima;
+  late Future<InfoNegocio> _negocio;
+  bool _escuchando = false;
+
   @override
   void initState() {
     super.initState();
     _futuro = _crearFuturo();
+    _clima = ClimaService.obtener();
+    _negocio = SupabaseService.cargarNegocio();
   }
 
   @override
@@ -263,10 +280,58 @@ class _NegocioPageState extends State<NegocioPage> {
     super.dispose();
   }
 
+  /// Inicia el dictado por voz: lo que se diga se escribe en el buscador.
+  Future<void> _escuchar() async {
+    final disponible = await _voz.initialize(
+      onStatus: (estado) {
+        if (estado == 'notListening' && mounted) {
+          setState(() => _escuchando = false);
+        }
+      },
+      onError: (_) {
+        if (mounted) setState(() => _escuchando = false);
+      },
+    );
+    if (!mounted) return;
+    if (!disponible) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Micrófono no disponible o sin permiso'),
+        ),
+      );
+      return;
+    }
+    setState(() => _escuchando = true);
+    await _voz.listen(
+      onResult: (resultado) {
+        setState(() {
+          _buscarCtrl.text = resultado.recognizedWords;
+          _filtro = resultado.recognizedWords;
+        });
+      },
+      // Español de Bolivia: reconoce mejor «cuñapé», «majadito»
+      // o «sonso» que el español de España.
+      listenOptions: SpeechListenOptions(localeId: 'es_BO'),
+    );
+  }
+
+  /// Agrega un plato al carrito y avisa.
+  void _agregarAlCarrito(Producto p) {
+    Carrito.instancia.agregar(nombre: p.nombre, precio: p.precio);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('«${p.nombre}» agregado a tu pedido')),
+    );
+  }
+
   Future<CatalogoResult> _crearFuturo() => SupabaseService.cargarProductos();
 
   /// Vuelve a consultar (botón «Reintentar» o tras añadir un plato).
-  void _reintentar() => setState(() => _futuro = _crearFuturo());
+  void _reintentar() {
+    final nuevo = _crearFuturo();
+    setState(() {
+      _futuro = nuevo;
+    });
+  }
 
   /// Abre una pantalla; si hay Supabase pero no hay sesión, pide login antes.
   Future<void> _abrir(Widget pagina) async {
@@ -283,6 +348,18 @@ class _NegocioPageState extends State<NegocioPage> {
       MaterialPageRoute(builder: (_) => pagina),
     );
     if (res == true) _reintentar(); // se añadió un plato: refrescamos la lista
+  }
+
+  /// Comparte la app por WhatsApp, correo o lo que el usuario elija.
+  Future<void> _compartirApp() async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: 'ConectaCruz — Churrasquería El Fogón 🍖🥩\n'
+            'Nuestra carta con precios actualizados, consultas y reservas '
+            'desde tu celular.\n'
+            'Descárgala en: https://github.com/AM1-SexySeven/dummy',
+      ),
+    );
   }
 
   /// Abre el detalle del plato; desde ahí puede ir a Consultar o Reservar.
@@ -302,13 +379,63 @@ class _NegocioPageState extends State<NegocioPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Churrasquería El Fogón'),
+        title: const Text('El Fogón'),
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: _reintentar,
-            tooltip: 'Actualizar',
-            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () =>
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const MapaPage())),
+            tooltip: 'Mapa de negocios',
+            icon: const Icon(Icons.map_rounded),
+          ),
+          ValueListenableBuilder<List<ItemCarrito>>(
+            valueListenable: Carrito.instancia,
+            builder: (context, items, _) {
+              final cantidad = Carrito.instancia.cantidadTotal;
+              return Badge(
+                label: Text('$cantidad'),
+                isLabelVisible: cantidad > 0,
+                child: IconButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MiPedidoPage()),
+                  ),
+                  tooltip: 'Mi pedido',
+                  icon: const Icon(Icons.shopping_cart_rounded),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const CuentaPage()),
+            ),
+            tooltip: 'Mi cuenta',
+            icon: const Icon(Icons.person_rounded),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Más opciones',
+            onSelected: (valor) {
+              if (valor == 'compartir') _compartirApp();
+              if (valor == 'actualizar') _reintentar();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(
+                value: 'compartir',
+                child: ListTile(
+                  leading: Icon(Icons.share_rounded),
+                  title: Text('Compartir la app'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'actualizar',
+                child: ListTile(
+                  leading: Icon(Icons.refresh_rounded),
+                  title: Text('Actualizar menú'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 4),
         ],
@@ -316,37 +443,156 @@ class _NegocioPageState extends State<NegocioPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Image.asset(
+          // Clima en vivo de Santa Cruz (open-meteo). Si falla, avisa y
+          // ofrece reintentar; la aplicación nunca se cierra.
+          FutureBuilder<ClimaResult>(
+            future: _clima,
+            builder: (context, snap) {
+              final tema = Theme.of(context);
+              final resultado = snap.data;
+
+              Widget contenido;
+              Color? colorTarjeta;
+              if (resultado == null) {
+                contenido = const Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Consultando el clima de Santa Cruz…'),
+                    ),
+                  ],
+                );
+              } else if (resultado.esError) {
+                colorTarjeta = tema.colorScheme.errorContainer;
+                contenido = Row(
+                  children: [
+                    Icon(
+                      Icons.cloud_off_rounded,
+                      color: tema.colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        resultado.mensaje ??
+                            'No se pudo obtener el clima.',
+                        style: TextStyle(
+                          color: tema.colorScheme.onErrorContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _clima = ClimaService.obtener();
+                      }),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Reintentar'),
+                    ),
+                  ],
+                );
+              } else {
+                final clima = resultado.clima!;
+                contenido = Row(
+                  children: [
+                    Icon(
+                      Icons.wb_sunny_rounded,
+                      color: tema.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Santa Cruz ahora: ${clima.temperatura.round()} °C'
+                        ' · viento ${clima.viento.round()} km/h'
+                        ' · ${clima.descripcion}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  Card(
+                    color: colorTarjeta ?? tema.colorScheme.secondaryContainer,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      child: contenido,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              );
+            },
+          ),
+          FutureBuilder<InfoNegocio>(
+            future: _negocio,
+            builder: (context, snap) {
+              final info = snap.data ?? InfoNegocio.actual;
+              final foto = info.fotoUrl.trim();
+              final asset = Image.asset(
                 'assets/images/logo_fogon.png',
                 width: 280,
                 height: 180,
                 fit: BoxFit.cover,
-              ),
-            ),
+              );
+              return Center(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: foto.isEmpty
+                      ? asset
+                      : Image.network(
+                          foto,
+                          width: 280,
+                          height: 180,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => asset,
+                        ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 20),
-          Text(
-            'Churrasquería El Fogón',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Center(
-            child: Chip(
-              label: const Text('Gastronomía'),
-              avatar: const Icon(Icons.restaurant_rounded, size: 18),
-              backgroundColor: theme.colorScheme.primaryContainer,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            'Parrillas y platos tradicionales cruceños para compartir.',
-            textAlign: TextAlign.center,
+          FutureBuilder<InfoNegocio>(
+            future: _negocio,
+            builder: (context, snap) {
+              final info = snap.data ?? InfoNegocio.actual;
+              return Column(
+                children: [
+                  Text(
+                    info.nombre,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: Chip(
+                      label: Text(info.rubro),
+                      avatar:
+                          const Icon(Icons.restaurant_rounded, size: 18),
+                      backgroundColor: theme.colorScheme.primaryContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    info.descripcion,
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
 
@@ -391,10 +637,20 @@ class _NegocioPageState extends State<NegocioPage> {
           TextField(
             controller: _buscarCtrl,
             onChanged: (v) =>
-                setState(() => _filtro = v.trim().toLowerCase()),
+                setState(() => _filtro = v),
             decoration: InputDecoration(
               hintText: 'Buscar plato...',
               prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: IconButton(
+                tooltip: _escuchando ? 'Escuchando…' : 'Buscar por voz',
+                onPressed: _escuchando ? null : _escuchar,
+                icon: Icon(
+                  _escuchando ? Icons.mic_rounded : Icons.mic_none_rounded,
+                  color: _escuchando
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.primary,
+                ),
+              ),
               isDense: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -452,7 +708,8 @@ class _NegocioPageState extends State<NegocioPage> {
               }
               // Filtro de búsqueda por nombre
               final visibles = catalogo.productos
-                  .where((p) => p.nombre.toLowerCase().contains(_filtro))
+                  .where((p) => Texto.contieneEnAlguno(
+                    [p.nombre, p.descripcion], _filtro))
                   .toList();
               if (visibles.isEmpty) {
                 return const Padding(
@@ -487,6 +744,7 @@ class _NegocioPageState extends State<NegocioPage> {
                     _ProductoTile(
                       producto: p,
                       onTap: () => _abrirDetalle(p),
+                      onAdd: () => _agregarAlCarrito(p),
                     ),
                 ],
               );
@@ -495,36 +753,43 @@ class _NegocioPageState extends State<NegocioPage> {
 
           const SizedBox(height: 24),
 
-          // Datos de contacto (como en la app del ingeniero)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Información del negocio',
-                    style: theme.textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold),
+          // Datos de contacto (los guarda Supabase; el dueño los edita
+          // desde el Panel del negocio y el cliente ve siempre el último)
+          FutureBuilder<InfoNegocio>(
+            future: _negocio,
+            builder: (context, snap) {
+              final info = snap.data ?? InfoNegocio.actual;
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Información del negocio',
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 10),
+                      _DatoRow(
+                        icon: Icons.location_on_outlined,
+                        texto: info.direccion,
+                      ),
+                      const SizedBox(height: 6),
+                      _DatoRow(
+                        icon: Icons.phone_outlined,
+                        texto: 'Cel: ${info.telefono}',
+                      ),
+                      const SizedBox(height: 6),
+                      _DatoRow(
+                        icon: Icons.access_time_rounded,
+                        texto: info.horario,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  const _DatoRow(
-                    icon: Icons.location_on_outlined,
-                    texto: 'Av. Busch 1234, Santa Cruz de la Sierra',
-                  ),
-                  const SizedBox(height: 6),
-                  const _DatoRow(
-                    icon: Icons.phone_outlined,
-                    texto: 'Cel: 591 700 0000',
-                  ),
-                  const SizedBox(height: 6),
-                  const _DatoRow(
-                    icon: Icons.access_time_rounded,
-                    texto: 'Mar a Dom · 18:00 – 23:30',
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
         ],
@@ -588,8 +853,13 @@ class _DatoRow extends StatelessWidget {
 class _ProductoTile extends StatelessWidget {
   final Producto producto;
   final VoidCallback onTap;
+  final VoidCallback onAdd;
 
-  const _ProductoTile({required this.producto, required this.onTap});
+  const _ProductoTile({
+    required this.producto,
+    required this.onTap,
+    required this.onAdd,
+  });
 
   /// Color del precio según el rango (Luis).
   static Color _colorPrecio(double precio) {
@@ -608,13 +878,7 @@ class _ProductoTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 6),
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: const Color(0xFFF9F2E0),
-          child: Icon(
-            Icons.local_fire_department_rounded,
-            color: theme.colorScheme.primary,
-          ),
-        ),
+        leading: FotoPlato(fotoUrl: producto.fotoUrl),
         title: Text(
           producto.nombre,
           style: const TextStyle(fontWeight: FontWeight.w600),
@@ -630,7 +894,16 @@ class _ProductoTile extends StatelessWidget {
                 color: _colorPrecio(producto.precio),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 2),
+            IconButton(
+              tooltip: 'Agregar a tu pedido',
+              icon: const Icon(Icons.add_shopping_cart_rounded),
+              iconSize: 22,
+              color: theme.colorScheme.primary,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+              onPressed: onAdd,
+            ),
             Icon(Icons.chevron_right_rounded,
                 color: theme.colorScheme.outline),
           ],
@@ -639,3 +912,4 @@ class _ProductoTile extends StatelessWidget {
     );
   }
 }
+

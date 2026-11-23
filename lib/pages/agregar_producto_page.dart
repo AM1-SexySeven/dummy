@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../services/storage_service.dart';
 import '../services/supabase_service.dart';
 
 /// Pantalla para añadir un plato/producto al negocio.
@@ -14,6 +16,8 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
   final _nombreCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _precioCtrl = TextEditingController();
+  ImageSource? _origenFoto;
+  XFile? _fotoSeleccionada;
   bool _guardando = false;
   String? _error;
 
@@ -23,6 +27,52 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
     _descCtrl.dispose();
     _precioCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _elegirOrigenFoto() async {
+    final origen = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Foto inicial del plato',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Elegir de la galería'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Tomar una foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (origen == null) return;
+
+    final picker = ImagePicker();
+    final foto = await picker.pickImage(
+      source: origen,
+      maxWidth: StorageService.anchoMaximo,
+      imageQuality: StorageService.calidad,
+    );
+
+    if (foto != null) {
+      setState(() {
+        _origenFoto = origen;
+        _fotoSeleccionada = foto;
+      });
+    }
   }
 
   Future<void> _guardar() async {
@@ -45,11 +95,27 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
     });
 
     try {
-      await SupabaseService.agregarProducto(
+      final productoMap = await SupabaseService.agregarProducto(
         nombre: nombre,
         descripcion: desc.isEmpty ? 'Plato de Churrasquería El Fogón' : desc,
         precio: precio,
       );
+
+      final productoId = '${productoMap['id'] ?? ''}';
+
+      if (_origenFoto != null && productoId.isNotEmpty && SupabaseService.disponible) {
+        final subida = await StorageService.subirFotoPlato(
+          productoId: productoId,
+          origen: _origenFoto!,
+        );
+        if (subida.ok && subida.url != null) {
+          await SupabaseService.actualizarFotoProducto(
+            productoId: productoId,
+            url: subida.url!,
+          );
+        }
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Plato «$nombre» añadido al negocio')),
@@ -130,6 +196,25 @@ class _AgregarProductoPageState extends State<AgregarProductoPage> {
                   hintText: 'Ej: 45.50',
                   prefixIcon: Icon(Icons.attach_money_rounded),
                   border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              OutlinedButton.icon(
+                onPressed: _guardando ? null : _elegirOrigenFoto,
+                icon: Icon(
+                  _fotoSeleccionada != null
+                      ? Icons.check_circle_outline_rounded
+                      : Icons.add_a_photo_outlined,
+                  color: _fotoSeleccionada != null ? Colors.green : null,
+                ),
+                label: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    _fotoSeleccionada != null
+                        ? 'Foto seleccionada (se subirá al guardar)'
+                        : 'Seleccionar foto inicial (opcional)',
+                  ),
                 ),
               ),
 
