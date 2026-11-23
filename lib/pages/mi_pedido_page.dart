@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/carrito_service.dart';
 import '../services/supabase_service.dart';
 import 'login_page.dart';
+import 'pago_qr_page.dart';
 
 /// Carrito «Mi pedido»: platos elegidos y envío del pedido al negocio.
 class MiPedidoPage extends StatefulWidget {
@@ -24,6 +25,26 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
 
   String _bs(double v) => 'Bs ${v.toStringAsFixed(2).replaceAll('.', ',')}';
 
+  /// Traduce la excepción a algo que el cliente pueda entender.
+  ///
+  /// El mensaje técnico sirve para nosotros, no para quien está
+  /// pidiendo comida, y además deja a la vista la dirección del
+  /// servidor. Se registra en la consola y en pantalla va una frase
+  /// clara, con el mismo vocabulario que usa la pantalla del QR.
+  String _mensajeDeError(Object e) {
+    debugPrint('Error al enviar el pedido: $e');
+    final texto = e.toString();
+    if (texto.contains('SocketException') ||
+        texto.contains('Failed host lookup') ||
+        texto.contains('ClientException')) {
+      return 'Sin conexión a internet. Revisá tu conexión e intentá de nuevo.';
+    }
+    if (texto.contains('TimeoutException')) {
+      return 'El servidor está tardando en responder. Intentá de nuevo.';
+    }
+    return 'No se pudo registrar el pedido. Intentá de nuevo en un momento.';
+  }
+
   Future<void> _enviarPedido() async {
     // Sin sesión no se puede registrar el pedido.
     if (!SupabaseService.haySesion) {
@@ -43,22 +64,49 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
     setState(() => _enviando = true);
     try {
       final carrito = Carrito.instancia;
-      await SupabaseService.enviarPedido(
+      final total = carrito.total;
+
+      // 1. El pedido se registra primero, en estado pendiente. Su número
+      //    es el que identifica el cobro, así que no se descarta.
+      final pedidoId = await SupabaseService.enviarPedido(
         telefono: telefono,
         detalle: carrito.detalle,
-        total: carrito.total,
+        total: total,
       );
-      Carrito.instancia.vaciar();
       if (!mounted) return;
+
+      // 2. Pantalla de pago por QR. Devuelve true solo si el banco
+      //    confirmó que recibió el dinero.
+      final pagado = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PagoQrPage(pedidoId: pedidoId, monto: total),
+        ),
+      );
+      if (!mounted) return;
+
+      // 3. El carrito se vacía únicamente con el pago confirmado. Si el
+      //    cliente sale sin pagar, su pedido lo espera tal como estaba.
+      if (pagado != true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Pedido N.º $pedidoId guardado sin pagar. '
+                'Podés pagarlo cuando quieras.'),
+          ),
+        );
+        return;
+      }
+
+      Carrito.instancia.vaciar();
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           icon: const Icon(Icons.check_circle_rounded,
               color: Colors.green, size: 48),
-          title: const Text('¡Pedido enviado!'),
-          content: const Text(
-            'El negocio recibió tu pedido y lo confirmará por WhatsApp '
-            'o por teléfono.',
+          title: const Text('¡Pedido pagado!'),
+          content: Text(
+            'El negocio recibió tu pedido N.º $pedidoId y el pago. '
+            'Te avisará por WhatsApp cuando esté listo.',
           ),
           actions: [
             FilledButton(
@@ -72,7 +120,13 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('No se pudo enviar el pedido: $e')),
+        SnackBar(
+          content: Text(_mensajeDeError(e)),
+          action: SnackBarAction(
+            label: 'Reintentar',
+            onPressed: _enviarPedido,
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _enviando = false);
@@ -201,7 +255,7 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
                             : const Icon(Icons.send_rounded),
                         label: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12.0),
-                          child: Text('Enviar pedido'),
+                          child: Text('Pagar con QR'),
                         ),
                       ),
                     ],

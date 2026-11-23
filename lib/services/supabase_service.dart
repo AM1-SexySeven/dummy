@@ -473,7 +473,11 @@ class SupabaseService {
 
   // ------------------------------------------------------- panel negocio
 
-  static Future<void> enviarPedido({
+  /// Registra el pedido y devuelve su número.
+  ///
+  /// Ese número es el que después identifica el cobro por QR, así que
+  /// no se descarta: lo necesita `PagoQrPage`.
+  static Future<int> enviarPedido({
     required String telefono,
     required String detalle,
     required double total,
@@ -481,12 +485,15 @@ class SupabaseService {
     final c = _clienteObligado();
     // Usa la función SQL `crear_pedido` (BD_SQL/07_crear_pedido.sql):
     // valida los datos y registra el pedido en una sola transacción.
-    await c.rpc('crear_pedido', params: {
+    final id = await c.rpc('crear_pedido', params: {
       'p_nombre': usuario?.userMetadata?['nombre'] ?? usuario?.email ?? '',
       'p_telefono': telefono,
       'p_detalle': detalle,
       'p_total': total,
     });
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return int.parse('$id');
   }
 
   static Future<List<Map<String, dynamic>>> cargarReservas() async {

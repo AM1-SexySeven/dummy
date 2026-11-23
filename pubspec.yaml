@@ -45,6 +45,8 @@ dependencies:
   http: ^1.2.2
   # Dictado por voz en el buscador
   speech_to_text: ^7.0.0
+  # Dibujo del codigo QR de cobro (Laboratorio extra: pasarela de pago)
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
