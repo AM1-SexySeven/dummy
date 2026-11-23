@@ -3,8 +3,9 @@
 --  BASE DE DATOS COMPLETA — un solo archivo, todo en orden
 --
 --  Este archivo deja la base lista para correr la aplicación tal como
---  está hoy, incluido el cobro por QR. Reemplaza a ejecutar los once
---  scripts numerados uno por uno.
+--  está hoy: el cobro por QR, las fotos de los platos en la nube y la
+--  búsqueda por voz. Reemplaza a ejecutar los scripts numerados uno
+--  por uno.
 --
 --  Cómo usarlo
 --    1. Supabase → tu proyecto → SQL Editor → New query
@@ -30,6 +31,9 @@
 --    07   función crear_pedido
 --    08   información del negocio y dueños
 --    09   cobros por QR: tabla, seguridad, banco simulado y aviso en vivo
+--    10   limpieza de datos de otra práctica + carta sin duplicados
+--    11   fotos de los platos en Storage y quién puede subirlas
+--    13   cómo dar rol de dueño a una cuenta (comentado, va tu correo)
 --
 --  Lo del QR en detalle está explicado en docs/INTEGRACION_QR.md
 -- =====================================================================
@@ -891,3 +895,164 @@ $$;
 --
 --   select id, pedido_id, monto, estado, vence_en
 --     from public.cobros order by creado_en desc limit 10;
+
+
+-- #####################################################################
+-- ##  10_limpiar_datos.sql + 12_quitar_duplicados.sql
+-- ##  La carta queda con los cuatro platos de El Fogón, una sola vez
+-- #####################################################################
+
+-- El proyecto de Supabase puede traer datos de otra práctica (una
+-- cafetería, una ferretería, una tienda de tecnología). Este bloque
+-- deja solo lo de ConectaCruz. No toca pedidos, cobros ni reservas.
+--
+-- El orden importa: primero los productos y después los negocios,
+-- porque hay una clave foránea de productos hacia negocios y la base
+-- no deja borrar un negocio que todavía tenga productos colgando.
+
+delete from public.productos
+ where nombre not in (
+   'Parrillada para dos',
+   'Majadito batido',
+   'Pique macho',
+   'Sonso asado'
+ );
+
+-- Los negocios de ConectaCruz tienen rubro cargado (Gastronomía,
+-- Artesanía, Turismo). Los de la práctica anterior lo tienen vacío.
+
+delete from public.negocios
+ where coalesce(trim(rubro), '') = '';
+
+-- Si la carta ya se había cargado dos veces, dejar una sola fila por
+-- nombre: la más antigua, que es la que puede tener foto subida.
+
+delete from public.productos p
+ where exists (
+   select 1 from public.productos q
+    where q.nombre = p.nombre
+      and (q.created_at, q.id) < (p.created_at, p.id)
+ );
+
+-- La restricción que faltaba. Sin ella, el `on conflict do nothing`
+-- de abajo no evita nada y la carta se duplica en cada corrida.
+
+create unique index if not exists productos_nombre_unico
+  on public.productos (nombre);
+
+-- Ahora sí: completar la carta por si faltara alguno.
+
+insert into public.productos (nombre, descripcion, precio, negocio) values
+  ('Parrillada para dos', 'Carne, chorizo, yuca y ensalada',                120.00, 'Churrasquería El Fogón'),
+  ('Majadito batido',     'Arroz con charque, huevo y plátano',              35.00, 'Churrasquería El Fogón'),
+  ('Pique macho',         'Carne, papas fritas, huevo y llajua',             55.00, 'Churrasquería El Fogón'),
+  ('Sonso asado',         'Plátano con queso, mantequilla y dulce de leche', 20.00, 'Churrasquería El Fogón')
+on conflict (nombre) do nothing;
+
+
+-- #####################################################################
+-- ##  11_storage_fotos.sql
+-- ##  Fotos de los platos en Supabase Storage
+-- #####################################################################
+
+-- El depósito es público: cualquiera que conozca la dirección ve la
+-- foto. Es lo que corresponde para el escaparate de un negocio.
+
+insert into storage.buckets (id, name, public)
+values ('negocios', 'negocios', true)
+on conflict (id) do nothing;
+
+-- Una función corta para no repetir la consulta en cada política.
+
+create or replace function public.es_dueno()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.perfiles
+     where id = auth.uid() and rol = 'dueno'
+  );
+$$;
+
+comment on function public.es_dueno() is
+  'true si la sesión actual pertenece a una cuenta con rol de dueño.';
+
+grant execute on function public.es_dueno() to authenticated;
+
+-- Leer: cualquiera, incluso sin sesión. Las fotos del menú tienen que
+-- verse antes de iniciar sesión, igual que el catálogo.
+
+drop policy if exists "fotos: lectura publica" on storage.objects;
+create policy "fotos: lectura publica"
+  on storage.objects for select
+  using (bucket_id = 'negocios');
+
+-- Subir: solo el dueño, y solo dentro de la carpeta `platos/`.
+
+drop policy if exists "fotos: sube el dueno" on storage.objects;
+create policy "fotos: sube el dueno"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'negocios'
+    and (storage.foldername(name))[1] = 'platos'
+    and public.es_dueno()
+  );
+
+-- Reemplazar: también solo el dueño.
+
+drop policy if exists "fotos: reemplaza el dueno" on storage.objects;
+create policy "fotos: reemplaza el dueno"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'negocios' and public.es_dueno())
+  with check (bucket_id = 'negocios' and public.es_dueno());
+
+-- Borrar: nadie. Una foto huérfana es preferible a que un error borre
+-- la foto de un plato que sí está publicado.
+
+-- Dónde se guarda la dirección de la foto.
+
+alter table public.productos
+  add column if not exists imagen_url text not null default '';
+
+drop policy if exists "productos: el dueno actualiza" on public.productos;
+create policy "productos: el dueno actualiza"
+  on public.productos for update to authenticated
+  using (public.es_dueno())
+  with check (public.es_dueno());
+
+
+-- #####################################################################
+-- ##  13_dar_de_alta_dueno.sql
+-- ##  Quién puede cambiar la foto
+-- #####################################################################
+
+-- El botón «Cambiar foto» solo lo ve una cuenta con rol de dueño, y la
+-- aplicación lee ese rol de la tabla `perfiles`. Una cuenta creada
+-- desde el panel de Supabase no siempre tiene su fila ahí.
+--
+-- Descomentar y poner el correo de la cuenta que va a administrar el
+-- negocio. Se puede correr las veces que haga falta.
+--
+-- insert into public.perfiles (id, nombre, rol)
+-- select u.id,
+--        coalesce(u.raw_user_meta_data->>'nombre', split_part(u.email, '@', 1)),
+--        'dueno'
+--   from auth.users u
+--  where u.email = 'tucorreo@ejemplo.com'
+-- on conflict (id) do update set rol = 'dueno';
+--
+-- Comprobar:
+--   select u.email, coalesce(p.rol, '(sin perfil)') as rol
+--     from auth.users u left join public.perfiles p on p.id = u.id
+--    order by u.email;
+
+
+-- #####################################################################
+-- ##  Comprobación final de la Actividad 04
+-- #####################################################################
+--   select id, public from storage.buckets where id = 'negocios';
+--   select nombre, imagen_url from public.productos order by nombre;
+--   select nombre, rubro from public.negocios order by id;

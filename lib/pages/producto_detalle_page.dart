@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/storage_service.dart';
 import '../services/supabase_service.dart';
 import '../widgets/foto_plato.dart';
 
@@ -21,6 +23,100 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
   /// La información vigente del negocio (tel/WhatsApp) la carga Supabase;
   /// si no hay internet, el caché local o el respaldo.
   late final Future<InfoNegocio> _negocio = SupabaseService.cargarNegocio();
+
+  /// Rol de la sesión: el botón de cambiar la foto solo lo ve el dueño.
+  late final Future<String> _rol = SupabaseService.rolActual();
+
+  /// Foto que se está mostrando. Arranca con la que traía el plato y
+  /// cambia en el acto cuando el dueño sube una nueva, sin esperar a
+  /// que se recargue el catálogo.
+  late String _fotoUrl = widget.producto.fotoUrl;
+
+  bool _subiendo = false;
+
+  /// Pregunta de dónde sacar la foto y la sube.
+  Future<void> _cambiarFoto() async {
+    final origen = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Foto del plato',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Elegir de la galería'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Tomar una foto'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (origen == null || !mounted) return;
+
+    setState(() => _subiendo = true);
+    final subida = await StorageService.subirFotoPlato(
+      productoId: widget.producto.id,
+      origen: origen,
+    );
+    if (!mounted) return;
+
+    // Cancelar no es un error: no se avisa nada.
+    if (subida.cancelada) {
+      setState(() => _subiendo = false);
+      return;
+    }
+
+    if (!subida.ok) {
+      setState(() => _subiendo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(subida.mensaje ?? 'No se pudo subir la foto.')),
+      );
+      return;
+    }
+
+    // La foto ya está en el depósito; falta dejar su dirección en el plato.
+    try {
+      await SupabaseService.actualizarFotoProducto(
+        productoId: widget.producto.id,
+        url: subida.url!,
+      );
+      if (!mounted) return;
+      setState(() {
+        _fotoUrl = subida.url!;
+        _subiendo = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Foto actualizada')),
+      );
+    } on StateError catch (e) {
+      // El plato ya no está en el catálogo.
+      if (!mounted) return;
+      setState(() => _subiendo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _subiendo = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('La foto se subió, pero no se pudo guardar en el '
+              'plato. Revisá que la cuenta sea de dueño.'),
+        ),
+      );
+    }
+  }
 
   /// Abre una URL externa (teléfono / WhatsApp) sin crashear si falla.
   Future<void> _abrir(BuildContext context, Uri url) async {
@@ -51,11 +147,45 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: FotoPlato(
-                  fotoUrl: producto.fotoUrl,
-                  tamano: 240,
-                  forma: FotoForma.cuadrado,
-                ),
+                child: _subiendo
+                    ? const SizedBox(
+                        width: 240,
+                        height: 240,
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 12),
+                              Text('Subiendo la foto…'),
+                            ],
+                          ),
+                        ),
+                      )
+                    : FotoPlato(
+                        fotoUrl: _fotoUrl,
+                        tamano: 240,
+                        forma: FotoForma.cuadrado,
+                      ),
+              ),
+              // Cambiar la foto solo lo puede hacer el dueño del negocio.
+              // Mientras se resuelve el rol no se dibuja nada, para que
+              // el botón no aparezca y desaparezca.
+              FutureBuilder<String>(
+                future: _rol,
+                builder: (context, snap) {
+                  if (snap.data != 'dueno') return const SizedBox(height: 16);
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Center(
+                      child: OutlinedButton.icon(
+                        onPressed: _subiendo ? null : _cambiarFoto,
+                        icon: const Icon(Icons.add_a_photo_outlined),
+                        label: const Text('Cambiar foto'),
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 16),
               Text(

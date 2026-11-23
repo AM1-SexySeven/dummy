@@ -496,6 +496,36 @@ class SupabaseService {
     return int.parse('$id');
   }
 
+  /// Guarda la dirección de la foto de un plato.
+  ///
+  /// La RLS solo deja hacer este UPDATE a una cuenta con rol de dueño
+  /// (política «productos: el dueno actualiza», script 11). Cualquier
+  /// otra recibe un error del servidor, no una negativa de la app.
+  static Future<void> actualizarFotoProducto({
+    required String productoId,
+    required String url,
+  }) async {
+    final c = _clienteObligado();
+
+    // `.select()` devuelve las filas que el UPDATE tocó. Sin eso, si el
+    // plato ya no existe —porque lo borraron mientras el catálogo estaba
+    // abierto— Supabase no se queja: actualizar cero filas no es un
+    // error para él, y la foto quedaría en el depósito sin que ningún
+    // plato la apunte.
+    final filas = await c
+        .from('productos')
+        .update({'imagen_url': url})
+        .eq('id', productoId)
+        .select('id');
+
+    if ((filas as List).isEmpty) {
+      throw StateError(
+        'El plato ya no existe en el catálogo. Recargá la lista y '
+        'volvé a intentarlo.',
+      );
+    }
+  }
+
   static Future<List<Map<String, dynamic>>> cargarReservas() async {
     final c = _clienteObligado();
     final data =

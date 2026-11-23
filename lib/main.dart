@@ -18,6 +18,7 @@ import 'services/carrito_service.dart';
 import 'services/clima_service.dart';
 import 'services/supabase_service.dart';
 import 'widgets/foto_plato.dart';
+import 'utils/texto.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -305,10 +306,12 @@ class _NegocioPageState extends State<NegocioPage> {
       onResult: (resultado) {
         setState(() {
           _buscarCtrl.text = resultado.recognizedWords;
-          _filtro = resultado.recognizedWords.trim().toLowerCase();
+          _filtro = resultado.recognizedWords;
         });
       },
-      listenOptions: SpeechListenOptions(localeId: 'es_ES'),
+      // Español de Bolivia: reconoce mejor «cuñapé», «majadito»
+      // o «sonso» que el español de España.
+      listenOptions: SpeechListenOptions(localeId: 'es_BO'),
     );
   }
 
@@ -634,7 +637,7 @@ class _NegocioPageState extends State<NegocioPage> {
           TextField(
             controller: _buscarCtrl,
             onChanged: (v) =>
-                setState(() => _filtro = v.trim().toLowerCase()),
+                setState(() => _filtro = v),
             decoration: InputDecoration(
               hintText: 'Buscar plato...',
               prefixIcon: const Icon(Icons.search_rounded),
@@ -705,7 +708,8 @@ class _NegocioPageState extends State<NegocioPage> {
               }
               // Filtro de búsqueda por nombre
               final visibles = catalogo.productos
-                  .where((p) => p.nombre.toLowerCase().contains(_filtro))
+                  .where((p) => Texto.contieneEnAlguno(
+                    [p.nombre, p.descripcion], _filtro))
                   .toList();
               if (visibles.isEmpty) {
                 return const Padding(
