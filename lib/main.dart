@@ -17,11 +17,13 @@ import 'pages/reserva_page.dart';
 import 'services/carrito_service.dart';
 import 'services/clima_service.dart';
 import 'services/supabase_service.dart';
+import 'services/theme_service.dart';
 import 'widgets/foto_plato.dart';
 import 'utils/texto.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(ThemeService.init());
   // La bienvenida sale de inmediato; Supabase se inicializa en segundo plano.
   runApp(const ConectaCruzApp());
   unawaited(SupabaseService.init());
@@ -32,19 +34,41 @@ class ConectaCruzApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ConectaCruz',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB33A1A), // brasas / rojo parrilla
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: const BienvenidaPage(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.modoTema,
+      builder: (context, modo, _) {
+        return MaterialApp(
+          title: 'ConectaCruz',
+          debugShowCheckedModeBanner: false,
+          themeMode: modo,
+          theme: ThemeService.temaClaro,
+          darkTheme: ThemeService.temaOscuro,
+          home: const BienvenidaPage(),
+        );
+      },
     );
   }
+}
+
+/// Botón para alternar rápidamente entre tema Claro y Tema Oscuro.
+Widget _botonTema(BuildContext context) {
+  return ValueListenableBuilder<ThemeMode>(
+    valueListenable: ThemeService.modoTema,
+    builder: (context, modo, _) {
+      final esOscuro = modo == ThemeMode.dark ||
+          (modo == ThemeMode.system &&
+              MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+      return IconButton(
+        icon: Icon(esOscuro ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+        tooltip: esOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+        onPressed: () {
+          ThemeService.cambiarModo(
+            esOscuro ? ThemeMode.light : ThemeMode.dark,
+          );
+        },
+      );
+    },
+  );
 }
 
 /// Pantalla de bienvenida de ConectaCruz.
@@ -99,6 +123,7 @@ class BienvenidaPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ConectaCruz'),
         centerTitle: true,
+        actions: [_botonTema(context)],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -382,6 +407,7 @@ class _NegocioPageState extends State<NegocioPage> {
         title: const Text('El Fogón'),
         centerTitle: true,
         actions: [
+          _botonTema(context),
           IconButton(
             onPressed: () =>
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const MapaPage())),
