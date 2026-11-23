@@ -557,6 +557,19 @@ class SupabaseService {
     return res != null ? Map<String, dynamic>.from(res) : {};
   }
 
+  static Future<void> eliminarProducto(String id) async {
+    final c = _clienteObligado();
+    await c.from('productos').delete().eq('id', id);
+  }
+
+  static Future<void> actualizarPrecioProducto(
+    String id,
+    double nuevoPrecio,
+  ) async {
+    final c = _clienteObligado();
+    await c.from('productos').update({'precio': nuevoPrecio}).eq('id', id);
+  }
+
   // ----------------------------------------------------------- consultas
 
   static Future<void> enviarConsulta({required String mensaje}) async {

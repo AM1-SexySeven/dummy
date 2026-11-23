@@ -1,11 +1,14 @@
 ﻿import 'package:flutter/material.dart';
 
 import '../services/supabase_service.dart';
+import '../widgets/foto_plato.dart';
+import 'agregar_producto_page.dart';
 
-/// Panel del negocio: Reservas · Pedidos · Consultas · Negocio.
+/// Panel del negocio: Reservas · Pedidos · Consultas · Platos · Negocio.
 ///
 /// Las reservas y consultas son de solo lectura; los pedidos pueden
 /// cambiar de estado (pendiente → preparando → entregado / cancelado).
+/// En «Platos» el dueño gestiona la carta (añadir, editar precio, eliminar).
 /// En «Negocio» el dueño edita la información que el cliente ve y da de
 /// alta a otros dueños.
 class PanelNegocioPage extends StatefulWidget {
@@ -21,14 +24,13 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
   late Future<List<Map<String, dynamic>>> _reservas;
   late Future<List<Map<String, dynamic>>> _pedidos;
   late Future<List<Map<String, dynamic>>> _consultas;
+  late Future<CatalogoResult> _productos;
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this);
-    _reservas = _cargar(SupabaseService.cargarReservas);
-    _pedidos = _cargar(SupabaseService.cargarPedidos);
-    _consultas = _cargar(SupabaseService.cargarConsultas);
+    _tabs = TabController(length: 5, vsync: this);
+    _cargarTodo();
   }
 
   @override
@@ -47,11 +49,12 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
     }
   }
 
-  void _recargar() {
+  void _cargarTodo() {
     setState(() {
       _reservas = _cargar(SupabaseService.cargarReservas);
       _pedidos = _cargar(SupabaseService.cargarPedidos);
       _consultas = _cargar(SupabaseService.cargarConsultas);
+      _productos = SupabaseService.cargarProductos();
     });
   }
 
@@ -59,36 +62,133 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Panel del negocio'),
+        title: const Text('Panel de Administración'),
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: _recargar,
-            tooltip: 'Actualizar',
+            onPressed: _cargarTodo,
+            tooltip: 'Actualizar panel',
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
         bottom: TabBar(
           controller: _tabs,
+          isScrollable: true,
           tabs: const [
-            Tab(text: 'Reservas'),
-            Tab(text: 'Pedidos'),
-            Tab(text: 'Consultas'),
-            Tab(text: 'Negocio'),
+            Tab(icon: Icon(Icons.calendar_month_rounded, size: 18), text: 'Reservas'),
+            Tab(icon: Icon(Icons.shopping_bag_outlined, size: 18), text: 'Pedidos'),
+            Tab(icon: Icon(Icons.chat_bubble_outline_rounded, size: 18), text: 'Consultas'),
+            Tab(icon: Icon(Icons.restaurant_menu_rounded, size: 18), text: 'Platos'),
+            Tab(icon: Icon(Icons.storefront_rounded, size: 18), text: 'Negocio'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabs,
+      body: Column(
         children: [
-          _lista(_reservas, _reservaCard),
-          _lista(_pedidos, _pedidoCard),
-          _lista(_consultas, _consultaCard),
-          const _NegocioTab(),
+          // Banner de métricas rápidas arriba del panel
+          _resumenMetricasHeader(theme),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                _lista(_reservas, _reservaCard),
+                _lista(_pedidos, _pedidoCard),
+                _lista(_consultas, _consultaCard),
+                _PlatosTab(onPlatoModificado: _cargarTodo),
+                const _NegocioTab(),
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  /// Tarjetas de resumen rápido en la cabecera
+  Widget _resumenMetricasHeader(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _metricChip(
+              icon: Icons.calendar_month_rounded,
+              label: 'Reservas',
+              future: _reservas.then((l) => l.length),
+              color: Colors.blue.shade700,
+            ),
+            const SizedBox(width: 8),
+            _metricChip(
+              icon: Icons.shopping_bag_outlined,
+              label: 'Pedidos',
+              future: _pedidos.then((l) => l.length),
+              color: Colors.orange.shade800,
+            ),
+            const SizedBox(width: 8),
+            _metricChip(
+              icon: Icons.chat_bubble_outline_rounded,
+              label: 'Consultas',
+              future: _consultas.then((l) => l.length),
+              color: Colors.teal.shade700,
+            ),
+            const SizedBox(width: 8),
+            _metricChip(
+              icon: Icons.restaurant_rounded,
+              label: 'Platos',
+              future: _productos.then((c) => c.productos.length),
+              color: theme.colorScheme.primary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _metricChip({
+    required IconData icon,
+    required String label,
+    required Future<int> future,
+    required Color color,
+  }) {
+    return FutureBuilder<int>(
+      future: future,
+      builder: (context, snap) {
+        final cant = snap.data ?? 0;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Text(
+                '$label: ',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+              Text(
+                '$cant',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -206,7 +306,7 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
                       try {
                         await SupabaseService.actualizarEstadoPedido(id, e);
                         if (!mounted) return;
-                        _recargar();
+                        _cargarTodo();
                       } catch (err) {
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
@@ -223,6 +323,222 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
     );
   }
 }
+
+/// Tab para la gestión completa de platos en el menú.
+class _PlatosTab extends StatefulWidget {
+  const _PlatosTab({required this.onPlatoModificado});
+
+  final VoidCallback onPlatoModificado;
+
+  @override
+  State<_PlatosTab> createState() => _PlatosTabState();
+}
+
+class _PlatosTabState extends State<_PlatosTab> {
+  late Future<CatalogoResult> _productos;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargar();
+  }
+
+  void _cargar() {
+    setState(() {
+      _productos = SupabaseService.cargarProductos();
+    });
+  }
+
+  Future<void> _abrirAgregarPlato() async {
+    final agregado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AgregarProductoPage()),
+    );
+    if (agregado == true && mounted) {
+      _cargar();
+      widget.onPlatoModificado();
+    }
+  }
+
+  Future<void> _editarPrecio(Producto p) async {
+    final ctrl = TextEditingController(text: p.precio.toStringAsFixed(2));
+    final nuevoPrecio = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Editar precio: ${p.nombre}'),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'Nuevo precio (Bs)',
+            prefixIcon: Icon(Icons.attach_money_rounded),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final val = double.tryParse(ctrl.text.trim().replaceAll(',', '.'));
+              if (val != null && val > 0) {
+                Navigator.pop(ctx, val);
+              }
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (nuevoPrecio == null || !mounted) return;
+
+    try {
+      await SupabaseService.actualizarPrecioProducto(p.id, nuevoPrecio);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Precio de «${p.nombre}» actualizado a Bs ${nuevoPrecio.toStringAsFixed(2)}',
+          ),
+        ),
+      );
+      _cargar();
+      widget.onPlatoModificado();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo actualizar el precio: $e')),
+      );
+    }
+  }
+
+  Future<void> _eliminarPlato(Producto p) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar plato'),
+        content: Text('¿Seguro que deseas eliminar «${p.nombre}» del menú?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    try {
+      await SupabaseService.eliminarProducto(p.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Plato «${p.nombre}» eliminado')),
+      );
+      _cargar();
+      widget.onPlatoModificado();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar: $e')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      body: FutureBuilder<CatalogoResult>(
+        future: _productos,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final lista = snap.data?.productos ?? [];
+          if (lista.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.restaurant_menu_rounded,
+                      size: 64, color: theme.colorScheme.outline),
+                  const SizedBox(height: 12),
+                  const Text('No hay platos registrados en el menú'),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: _abrirAgregarPlato,
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Añadir primer plato'),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 80),
+            itemCount: lista.length,
+            itemBuilder: (context, i) {
+              final p = lista[i];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  leading: FotoPlato(
+                    fotoUrl: p.fotoUrl,
+                    tamano: 48,
+                  ),
+                  title: Text(
+                    p.nombre,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    '${p.descripcion}\nBs ${p.precio.toStringAsFixed(2).replaceAll('.', ',')}',
+                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                  ),
+                  isThreeLine: true,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        tooltip: 'Editar precio',
+                        onPressed: () => _editarPrecio(p),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            size: 20, color: theme.colorScheme.error),
+                        tooltip: 'Eliminar plato',
+                        onPressed: () => _eliminarPlato(p),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _abrirAgregarPlato,
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Nuevo plato'),
+      ),
+    );
+  }
+}
+
 class _NegocioTab extends StatefulWidget {
   const _NegocioTab();
 
@@ -495,4 +811,3 @@ class _NegocioTabState extends State<_NegocioTab> {
     );
   }
 }
-
