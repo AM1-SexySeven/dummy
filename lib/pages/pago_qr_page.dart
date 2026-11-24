@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../services/theme_service.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../services/pasarela_simulada.dart';
@@ -195,10 +197,21 @@ class _PagoQrPageState extends State<PagoQrPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // La única pantalla oscura de la app, a propósito: separa el momento
+    // de pagar del resto y el código escanea mejor sobre fondo oscuro.
     return Scaffold(
+      backgroundColor: ThemeService.tinta,
       appBar: AppBar(
-        title: const Text('Pagar con QR'),
-        centerTitle: true,
+        backgroundColor: ThemeService.tinta,
+        foregroundColor: Colors.white,
+        title: const Text('Pagar'),
+        titleTextStyle: const TextStyle(
+          fontFamily: ThemeService.display,
+          fontWeight: FontWeight.w800,
+          fontSize: 23,
+          letterSpacing: -0.7,
+          color: Colors.white,
+        ),
       ),
       body: FutureBuilder<void>(
         future: _primeraCarga,
@@ -305,29 +318,30 @@ class _PagoQrPageState extends State<PagoQrPage> {
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
-          Text(_bs(cobro.monto),
-              style: theme.textTheme.displaySmall
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
+          Text(
+            _bs(cobro.monto),
+            style: const TextStyle(
+              fontFamily: ThemeService.texto,
+              fontWeight: FontWeight.w700,
+              fontSize: 44,
+              height: 1,
+              color: Colors.white,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 9),
           Text('Pedido N.º ${widget.pedidoId}',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.colorScheme.outline)),
-          const SizedBox(height: 20),
+              style: const TextStyle(
+                  fontFamily: ThemeService.texto,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13.5,
+                  color: Color(0x8CFFFFFF))),
+          const SizedBox(height: 24),
 
           // El código
           Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+            color: Colors.white,
+            padding: const EdgeInsets.all(14),
             child: QrImageView(
               data: cobro.qrPayload!,
               version: QrVersions.auto,
@@ -339,20 +353,35 @@ class _PagoQrPageState extends State<PagoQrPage> {
           const SizedBox(height: 20),
 
           // Cuenta regresiva
+          // Una línea que se acorta en vez de un reloj con números: avisa
+          // sin meter presión.
+          SizedBox(
+            height: 3,
+            child: LinearProgressIndicator(
+              value: (_segundos / 600).clamp(0.0, 1.0),
+              backgroundColor: const Color(0x24FFFFFF),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                  porVencer ? ThemeService.brasa : ThemeService.llama),
+            ),
+          ),
+          const SizedBox(height: 11),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.schedule_rounded,
-                  size: 20,
-                  color: porVencer
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.outline),
-              const SizedBox(width: 6),
+              const Text('Escaneá con tu banca móvil',
+                  style: TextStyle(
+                      fontFamily: ThemeService.texto,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      color: Color(0x8CFFFFFF))),
               Text(
-                'Vence en $minutos:$segs',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: porVencer ? theme.colorScheme.error : null,
+                '$minutos:$segs',
+                style: TextStyle(
+                  fontFamily: ThemeService.texto,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: porVencer ? ThemeService.brasa : ThemeService.llama,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ],

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 /// Forma del marco de la foto.
-enum FotoForma { circulo, cuadrado }
+///
+/// `lleno` ocupa todo el espacio que le dé el padre, sin recorte ni medida
+/// fija: es lo que usa el catálogo, donde la foto es la fila entera.
+enum FotoForma { circulo, cuadrado, lleno }
 
 /// Foto del plato, leída desde Supabase Storage (URL pública).
 ///
@@ -20,6 +23,9 @@ class FotoPlato extends StatelessWidget {
   final double tamano;
   final FotoForma forma;
 
+  bool get _lleno => forma == FotoForma.lleno;
+  double? get _medida => _lleno ? null : tamano;
+
   /// Nombre de archivo de la URL (".../menu-fotos/parrillada.jpg" -> "parrillada.jpg").
   String get _archivo => Uri.tryParse(fotoUrl)?.pathSegments.lastOrNull ?? '';
 
@@ -32,8 +38,8 @@ class FotoPlato extends StatelessWidget {
     if (fotoUrl.startsWith('assets/')) {
       return Image.asset(
         fotoUrl,
-        width: tamano,
-        height: tamano,
+        width: _medida,
+        height: _medida,
         fit: BoxFit.cover,
         errorBuilder: (ctx, err, stack) => _respaldoAsset(context),
       );
@@ -42,15 +48,15 @@ class FotoPlato extends StatelessWidget {
     if (fotoUrl.startsWith('http://') || fotoUrl.startsWith('https://')) {
       return Image.network(
         fotoUrl,
-        width: tamano,
-        height: tamano,
+        width: _medida,
+        height: _medida,
         fit: BoxFit.cover,
         errorBuilder: (ctx, err, stack) => _respaldoAsset(context),
         loadingBuilder: (context, child, progress) {
           if (progress == null) return child;
           return SizedBox(
-            width: tamano,
-            height: tamano,
+            width: _medida,
+            height: _medida,
             child: Center(
               child: SizedBox(
                 width: tamano * 0.4,
@@ -74,15 +80,15 @@ class FotoPlato extends StatelessWidget {
 
     return Image.asset(
       ruta,
-      width: tamano,
-      height: tamano,
+      width: _medida,
+      height: _medida,
       fit: BoxFit.cover,
       errorBuilder: (ctx, err, stack) {
         if (ruta != 'assets/images/platos/parrillada.jpg') {
           return Image.asset(
             'assets/images/platos/parrillada.jpg',
-            width: tamano,
-            height: tamano,
+            width: _medida,
+            height: _medida,
             fit: BoxFit.cover,
             errorBuilder: (c, e, s) => _iconoFuego(context),
           );
@@ -93,12 +99,13 @@ class FotoPlato extends StatelessWidget {
   }
 
   Widget _enmarcar(Widget child) {
+    if (_lleno) return child;
     if (forma == FotoForma.cuadrado) {
       return SizedBox(
-        width: tamano,
-        height: tamano,
+        width: _medida,
+        height: _medida,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.zero,
           child: SizedBox(width: tamano, height: tamano, child: child),
         ),
       );
@@ -109,16 +116,18 @@ class FotoPlato extends StatelessWidget {
   Widget _iconoFuego(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      width: tamano,
-      height: tamano,
-      decoration: const BoxDecoration(
-        color: Color(0xFFF9F2E0),
-        shape: BoxShape.circle,
+      width: _medida,
+      height: _medida,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFE9E1),
+        shape: _lleno || forma == FotoForma.cuadrado
+            ? BoxShape.rectangle
+            : BoxShape.circle,
       ),
       child: Icon(
         Icons.local_fire_department_rounded,
         color: theme.colorScheme.primary,
-        size: tamano * 0.55,
+        size: _lleno ? 48 : tamano * 0.55,
       ),
     );
   }

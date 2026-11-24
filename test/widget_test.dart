@@ -44,16 +44,31 @@ void main() {
     expect(find.text('Consultar'), findsOneWidget);
     expect(find.text('Reservar'), findsOneWidget);
 
+    // Cada bloque se comprueba apenas aparece: con la carta de diez platos
+    // y la barra de categorías, lo que queda arriba sale del árbol al bajar.
+    await tester.scrollUntilVisible(
+      find.text('Productos y servicios'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Productos y servicios'), findsOneWidget);
+
     await tester.scrollUntilVisible(
       find.text('Parrillada para dos'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.pumpAndSettle();
-
-    expect(find.text('Productos y servicios'), findsOneWidget);
     expect(find.text('Parrillada para dos'), findsOneWidget);
-    expect(find.text('Majadito batido'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Majadito Batido con Huevo'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Majadito Batido con Huevo'), findsOneWidget);
   });
 
   // ---------------------------------------------------- 3. Iniciar sesión → login
@@ -265,12 +280,11 @@ void main() {
       ),
     );
 
-    expect(find.text('Detalle del plato'), findsOneWidget);
     expect(find.text('Pique macho'), findsOneWidget);
     expect(find.text('Carne, papas fritas, huevo y llajua'), findsOneWidget);
     expect(find.text('Bs 55,00'), findsOneWidget);
-    expect(find.text('Consultar sobre este plato'), findsOneWidget);
-    expect(find.text('Reservar para comer'), findsOneWidget);
+    expect(find.text('Consultar'), findsOneWidget);
+    expect(find.text('Reservar mesa'), findsOneWidget);
   });
 
   // ----------------------------------- 17. Cat?logo -> detalle de plato
@@ -293,8 +307,10 @@ void main() {
     await tester.tap(find.text('Parrillada para dos'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Detalle del plato'), findsOneWidget);
+    // El detalle se reconoce por el plato y su precio: ya no hay una
+    // barra con el título «Detalle del plato».
     expect(find.text('Bs 120,00'), findsOneWidget);
+    expect(find.text('Reservar mesa'), findsOneWidget);
   });
 
   // -------------------------- 18. Validaci?n fecha/hora en la reserva

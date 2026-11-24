@@ -343,7 +343,8 @@ class _NegocioPageState extends State<NegocioPage> {
 
   /// Agrega un plato al carrito y avisa.
   void _agregarAlCarrito(Producto p) {
-    Carrito.instancia.agregar(nombre: p.nombre, precio: p.precio);
+    Carrito.instancia
+        .agregar(nombre: p.nombre, precio: p.precio, fotoUrl: p.fotoUrl);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('«${p.nombre}» agregado a tu pedido')),
     );
@@ -920,6 +921,11 @@ class _DatoRow extends StatelessWidget {
   }
 }
 
+/// Un plato del catálogo, a sangre.
+///
+/// La foto no es una miniatura al costado: es la fila entera. El nombre va
+/// encima, sobre un velo que baja desde abajo para que el texto se lea sin
+/// importar qué tan clara sea la foto, y el precio sale recortado en blanco.
 class _ProductoTile extends StatelessWidget {
   final Producto producto;
   final VoidCallback onTap;
@@ -931,51 +937,141 @@ class _ProductoTile extends StatelessWidget {
     required this.onAdd,
   });
 
-  /// Color del precio según el rango (Luis).
-  static Color _colorPrecio(double precio) {
-    if (precio <= 50) return Colors.green.shade700;
-    if (precio <= 100) return Colors.orange.shade800;
-    return Colors.red.shade700;
-  }
+  static const double _alto = 208;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final precio =
-        'Bs ${producto.precio.toStringAsFixed(2).replaceAll('.', ',')}';
+    final precio = producto.precio
+        .toStringAsFixed(2)
+        .replaceAll('.', ',')
+        .replaceAll(',00', '');
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: ListTile(
-        onTap: onTap,
-        leading: FotoPlato(fotoUrl: producto.fotoUrl),
-        title: Text(
-          producto.nombre,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(producto.descripcion),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+    // El ListView del catálogo tiene 20 px de margen a cada lado. La foto
+    // se sale de ese margen a propósito: ocupa el ancho completo.
+    final ancho = MediaQuery.of(context).size.width;
+
+    return SizedBox(
+      height: _alto,
+      child: OverflowBox(
+        minWidth: ancho,
+        maxWidth: ancho,
+        minHeight: _alto,
+        maxHeight: _alto,
+        child: InkWell(
+          onTap: onTap,
+          child: Stack(
+          fit: StackFit.expand,
           children: [
-            Text(
-              precio,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: _colorPrecio(producto.precio),
+            FotoPlato(fotoUrl: producto.fotoUrl, forma: FotoForma.lleno),
+            // Velo sólo en la mitad de abajo: la foto se ve entera arriba.
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  stops: [0.0, 0.38, 0.66],
+                  colors: [
+                    Color(0xDC0A0706),
+                    Color(0x590A0706),
+                    Color(0x000A0706),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(width: 2),
-            IconButton(
-              tooltip: 'Agregar a tu pedido',
-              icon: const Icon(Icons.add_shopping_cart_rounded),
-              iconSize: 22,
-              color: theme.colorScheme.primary,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-              onPressed: onAdd,
+            Positioned(
+              left: 18,
+              right: 14,
+              bottom: 14,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          producto.nombre,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: ThemeService.display,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 25,
+                            height: 0.99,
+                            letterSpacing: -0.8,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (producto.descripcion.trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            producto.descripcion,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: ThemeService.texto,
+                              fontSize: 12.5,
+                              height: 1.35,
+                              color: Color(0xB8FFFFFF),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _Precio(precio: precio, onAdd: onAdd),
+                ],
+              ),
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: theme.colorScheme.outline),
+          ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// El precio, recortado en blanco sobre la foto. Tocarlo agrega al pedido.
+class _Precio extends StatelessWidget {
+  final String precio;
+  final VoidCallback onAdd;
+  const _Precio({required this.precio, required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onAdd,
+      child: Container(
+        color: Colors.white,
+        padding: const EdgeInsets.fromLTRB(11, 8, 11, 9),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            const Text(
+              'Bs',
+              style: TextStyle(
+                fontFamily: ThemeService.texto,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+                height: 1,
+                color: ThemeService.tinta,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              precio,
+              style: const TextStyle(
+                fontFamily: ThemeService.texto,
+                fontWeight: FontWeight.w700,
+                fontSize: 19,
+                height: 1,
+                color: ThemeService.brasa,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
           ],
         ),
       ),
