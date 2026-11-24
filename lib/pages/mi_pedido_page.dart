@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../services/theme_service.dart';
+
 import '../services/carrito_service.dart';
 import '../services/supabase_service.dart';
+import '../widgets/foto_plato.dart';
 import 'login_page.dart';
 import 'pago_qr_page.dart';
 
@@ -173,33 +176,79 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
                   itemCount: items.length,
                   itemBuilder: (context, i) {
                     final item = items[i];
-                    return Card(
-                      child: ListTile(
-                        title: Text(
-                          item.nombre,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                    return Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: ThemeService.linea),
                         ),
-                        subtitle: Text(_bs(item.precio)),
-                        leading: IconButton(
-                          onPressed: () => Carrito.instancia
-                              .cambiarCantidad(item.nombre, -1),
-                          icon: const Icon(Icons.remove_circle_outline),
-                        ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '${item.cantidad}',
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 62,
+                            height: 62,
+                            child: FotoPlato(
+                              fotoUrl: item.fotoUrl,
+                              forma: FotoForma.lleno,
                             ),
-                            IconButton(
-                              onPressed: () => Carrito.instancia
-                                  .cambiarCantidad(item.nombre, 1),
-                              icon: const Icon(Icons.add_circle_outline),
+                          ),
+                          const SizedBox(width: 13),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(item.nombre,
+                                    style: theme.textTheme.titleLarge),
+                                const SizedBox(height: 7),
+                                // El menos y el más, juntos y del mismo lado:
+                                // así se ajusta la cantidad sin cruzar la fila.
+                                Row(
+                                  children: [
+                                    _PasoCantidad(
+                                      icono: item.cantidad == 1
+                                          ? Icons.delete_outline_rounded
+                                          : Icons.remove_rounded,
+                                      onTap: () => Carrito.instancia
+                                          .cambiarCantidad(item.nombre, -1),
+                                    ),
+                                    SizedBox(
+                                      width: 30,
+                                      child: Text(
+                                        '${item.cantidad}',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontFamily: ThemeService.texto,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 14.5,
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures()
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    _PasoCantidad(
+                                      icono: Icons.add_rounded,
+                                      onTap: () => Carrito.instancia
+                                          .cambiarCantidad(item.nombre, 1),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _bs(item.precio * item.cantidad),
+                            style: const TextStyle(
+                              fontFamily: ThemeService.texto,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -208,25 +257,30 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
               // Total + teléfono + envío
               SafeArea(
                 child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest,
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: ThemeService.linea),
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
-                          const Text('Total'),
+                          Text('Total', style: theme.textTheme.labelMedium),
                           const Spacer(),
                           Text(
                             _bs(total),
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.primary,
+                            style: const TextStyle(
+                              fontFamily: ThemeService.texto,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 30,
+                              height: 1,
+                              fontFeatures: [FontFeature.tabularFigures()],
                             ),
                           ),
                         ],
@@ -265,6 +319,28 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Un paso de cantidad: cuadrado, borde fino, sin relleno.
+class _PasoCantidad extends StatelessWidget {
+  final IconData icono;
+  final VoidCallback onTap;
+  const _PasoCantidad({required this.icono, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          border: Border.all(color: ThemeService.linea, width: 1.4),
+        ),
+        child: Icon(icono, size: 15, color: ThemeService.humo),
       ),
     );
   }

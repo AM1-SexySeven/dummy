@@ -919,9 +919,15 @@ $$;
 delete from public.productos
  where nombre not in (
    'Parrillada para dos',
-   'Majadito batido',
-   'Pique macho',
-   'Sonso asado'
+   'Bife de Chorizo a las Brasas',
+   'Pique Macho Cruceño',
+   'Majadito Batido con Huevo',
+   'Keperí al Horno',
+   'Pacumuto de Res',
+   'Pacú a la Parrilla',
+   'Sonso Asado a la Brasa',
+   'Sopa de Maní Tradicional',
+   'Chicha Cruceña Helada'
  );
 
 -- Los negocios de ConectaCruz tienen rubro cargado (Gastronomía,

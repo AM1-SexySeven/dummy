@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 
+import '../services/theme_service.dart';
+
 import '../services/supabase_service.dart';
 import '../widgets/foto_plato.dart';
 import 'agregar_producto_page.dart';
@@ -492,38 +494,57 @@ class _PlatosTabState extends State<_PlatosTab> {
             itemCount: lista.length,
             itemBuilder: (context, i) {
               final p = lista[i];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: FotoPlato(
-                    fotoUrl: p.fotoUrl,
-                    tamano: 48,
-                  ),
-                  title: Text(
-                    p.nombre,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '${p.descripcion}\nBs ${p.precio.toStringAsFixed(2).replaceAll('.', ',')}',
-                    style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                  isThreeLine: true,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 20),
-                        tooltip: 'Editar precio',
-                        onPressed: () => _editarPrecio(p),
+              final precio =
+                  'Bs ${p.precio.toStringAsFixed(2).replaceAll('.', ',')}';
+              return Container(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: const BoxDecoration(
+                  border:
+                      Border(bottom: BorderSide(color: ThemeService.linea)),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 54,
+                      height: 54,
+                      child: FotoPlato(
+                        fotoUrl: p.fotoUrl,
+                        forma: FotoForma.lleno,
                       ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            size: 20, color: theme.colorScheme.error),
-                        tooltip: 'Eliminar plato',
-                        onPressed: () => _eliminarPlato(p),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(p.nombre, style: theme.textTheme.titleLarge),
+                          const SizedBox(height: 5),
+                          Text(
+                            precio,
+                            style: const TextStyle(
+                              fontFamily: ThemeService.texto,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: ThemeService.brasa,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      tooltip: 'Editar precio',
+                      onPressed: () => _editarPrecio(p),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.delete_outline,
+                          size: 20, color: theme.colorScheme.error),
+                      tooltip: 'Eliminar plato',
+                      onPressed: () => _eliminarPlato(p),
+                    ),
+                  ],
                 ),
               );
             },
@@ -532,6 +553,9 @@ class _PlatosTabState extends State<_PlatosTab> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirAgregarPlato,
+        backgroundColor: ThemeService.tinta,
+        foregroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         icon: const Icon(Icons.add_rounded),
         label: const Text('Nuevo plato'),
       ),

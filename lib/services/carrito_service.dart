@@ -6,11 +6,15 @@ class ItemCarrito {
     required this.nombre,
     required this.precio,
     this.cantidad = 1,
+    this.fotoUrl = '',
   });
 
   final String nombre;
   final double precio;
   int cantidad;
+
+  /// Para mostrar la miniatura en «Mi pedido». Vacío si el plato no tiene foto.
+  final String fotoUrl;
 
   double get subtotal => precio * cantidad;
 }
@@ -26,11 +30,15 @@ class Carrito extends ValueNotifier<List<ItemCarrito>> {
   static final Carrito instancia = Carrito._();
 
   /// Agrega un plato; si ya estaba, suma una unidad más.
-  void agregar({required String nombre, required double precio}) {
+  void agregar({
+    required String nombre,
+    required double precio,
+    String fotoUrl = '',
+  }) {
     final items = List<ItemCarrito>.from(value);
     final i = items.indexWhere((e) => e.nombre == nombre);
     if (i == -1) {
-      items.add(ItemCarrito(nombre: nombre, precio: precio));
+      items.add(ItemCarrito(nombre: nombre, precio: precio, fotoUrl: fotoUrl));
     } else {
       items[i].cantidad += 1;
     }

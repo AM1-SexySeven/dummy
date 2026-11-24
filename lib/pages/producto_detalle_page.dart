@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/storage_service.dart';
+import '../services/theme_service.dart';
 import '../services/supabase_service.dart';
 import '../widgets/foto_plato.dart';
 
@@ -136,129 +137,157 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
         'Bs ${producto.precio.toStringAsFixed(2).replaceAll('.', ',')}';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detalle del plato'),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: _subiendo
-                    ? const SizedBox(
-                        width: 240,
-                        height: 240,
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 12),
-                              Text('Subiendo la foto…'),
-                            ],
-                          ),
+      // Sin barra superior: la foto empieza arriba de todo y la flecha
+      // de volver va encima de ella.
+      body: SingleChildScrollView(
+        padding: EdgeInsets.zero,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 380,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_subiendo)
+                    const ColoredBox(
+                      color: Color(0xFFEFE9E1),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 12),
+                            Text('Subiendo la foto…'),
+                          ],
                         ),
-                      )
-                    : FotoPlato(
-                        fotoUrl: _fotoUrl,
-                        tamano: 240,
-                        forma: FotoForma.cuadrado,
                       ),
-              ),
-              // Cambiar la foto solo lo puede hacer el dueño del negocio.
-              // Mientras se resuelve el rol no se dibuja nada, para que
-              // el botón no aparezca y desaparezca.
-              FutureBuilder<String>(
-                future: _rol,
-                builder: (context, snap) {
-                  if (snap.data != 'dueno') return const SizedBox(height: 16);
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Center(
-                      child: OutlinedButton.icon(
-                        onPressed: _subiendo ? null : _cambiarFoto,
-                        icon: const Icon(Icons.add_a_photo_outlined),
-                        label: const Text('Cambiar foto'),
+                    )
+                  else
+                    FotoPlato(fotoUrl: _fotoUrl, forma: FotoForma.lleno),
+                  // Un velo corto arriba, sólo para que la flecha se vea
+                  // sobre fotos claras.
+                  const DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: [0.0, 0.32],
+                        colors: [Color(0x800A0706), Color(0x000A0706)],
                       ),
                     ),
-                  );
-                },
+                  ),
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 8,
+                    left: 16,
+                    child: Material(
+                      color: const Color(0xEBFFFFFF),
+                      child: InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: const SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Icon(Icons.arrow_back_rounded,
+                              size: 21, color: ThemeService.tinta),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Cambiar la foto solo lo puede hacer el dueño. Mientras
+                  // se resuelve el rol no se dibuja nada, para que el botón
+                  // no aparezca y desaparezca.
+                  FutureBuilder<String>(
+                    future: _rol,
+                    builder: (context, snap) {
+                      if (snap.data != 'dueno') return const SizedBox.shrink();
+                      return Positioned(
+                        left: 16,
+                        bottom: 14,
+                        child: Material(
+                          color: const Color(0xEBFFFFFF),
+                          child: InkWell(
+                            onTap: _subiendo ? null : _cambiarFoto,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 9),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.photo_camera_outlined,
+                                      size: 16, color: ThemeService.tinta),
+                                  SizedBox(width: 7),
+                                  Text('Cambiar foto',
+                                      style: TextStyle(
+                                        fontFamily: ThemeService.texto,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12.5,
+                                        color: ThemeService.tinta,
+                                      )),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                producto.nombre,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Chip(
-                  label: const Text('Gastronomía'),
-                  avatar: const Icon(Icons.restaurant_rounded, size: 18),
-                  backgroundColor: theme.colorScheme.primaryContainer,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                'Descripción',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                producto.descripcion.isEmpty
-                    ? 'Plato de la casa.'
-                    : producto.descripcion,
-                style: theme.textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 20),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(producto.nombre, style: theme.textTheme.displayLarge),
+                  const SizedBox(height: 12),
+                  Text(
+                    producto.descripcion.isEmpty
+                        ? 'Plato de la casa.'
+                        : producto.descripcion,
+                    style: theme.textTheme.bodyLarge
+                        ?.copyWith(color: ThemeService.humo),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        'Precio',
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      Text(
                         precio,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.bold,
+                        style: const TextStyle(
+                          fontFamily: ThemeService.texto,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 38,
+                          height: 1,
+                          color: ThemeService.brasa,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text('por plato', style: theme.textTheme.labelMedium),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Estas consultas devuelven el resultado al catálogo
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              Navigator.pop(context, 'consultar'),
+                          child: const Text('Consultar'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context, 'reservar'),
+                          child: const Text('Reservar mesa'),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Estas consultas devuelven el resultado al catálogo
-              FilledButton.icon(
-                onPressed: () => Navigator.pop(context, 'consultar'),
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Consultar sobre este plato'),
-                ),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () => Navigator.pop(context, 'reservar'),
-                icon: const Icon(Icons.calendar_month_rounded),
-                label: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text('Reservar para comer'),
-                ),
-              ),
               const SizedBox(height: 10),
               // Contacto directo: usa el número vigente guardado en Supabase
               FutureBuilder<InfoNegocio>(
@@ -322,8 +351,11 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
                   );
                 },
               ),
-            ],
-          ),
+                  const SizedBox(height: 28),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
