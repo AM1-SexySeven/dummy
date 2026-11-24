@@ -25,9 +25,6 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
   /// si no hay internet, el caché local o el respaldo.
   late final Future<InfoNegocio> _negocio = SupabaseService.cargarNegocio();
 
-  /// Rol de la sesión: el botón de cambiar la foto solo lo ve el dueño.
-  late final Future<String> _rol = SupabaseService.rolActual();
-
   /// Foto que se está mostrando. Arranca con la que traía el plato y
   /// cambia en el acto cuando el dueño sube una nueva, sin esperar a
   /// que se recargue el catálogo.
@@ -196,10 +193,10 @@ class _ProductoDetallePageState extends State<ProductoDetallePage> {
                   // Cambiar la foto solo lo puede hacer el dueño. Mientras
                   // se resuelve el rol no se dibuja nada, para que el botón
                   // no aparezca y desaparezca.
-                  FutureBuilder<String>(
-                    future: _rol,
-                    builder: (context, snap) {
-                      if (snap.data != 'dueno') return const SizedBox.shrink();
+                  ValueListenableBuilder<String>(
+                    valueListenable: SupabaseService.rol,
+                    builder: (context, rol, _) {
+                      if (rol != 'dueno') return const SizedBox.shrink();
                       return Positioned(
                         left: 16,
                         bottom: 14,

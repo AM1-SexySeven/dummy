@@ -49,6 +49,8 @@ dependencies:
   image_picker: ^1.1.2
   # Dibujo del codigo QR de cobro (Laboratorio extra: pasarela de pago)
   qr_flutter: ^4.1.0
+  # Carpeta donde se guarda el comprobante descargado
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

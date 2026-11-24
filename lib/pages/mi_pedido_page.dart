@@ -5,6 +5,8 @@ import '../services/theme_service.dart';
 import '../services/carrito_service.dart';
 import '../services/supabase_service.dart';
 import '../widgets/foto_plato.dart';
+import 'comprobante_page.dart';
+import 'confirmar_pedido_page.dart';
 import 'login_page.dart';
 import 'pago_qr_page.dart';
 
@@ -17,14 +19,9 @@ class MiPedidoPage extends StatefulWidget {
 }
 
 class _MiPedidoPageState extends State<MiPedidoPage> {
-  final _telCtrl = TextEditingController();
+  /// Se recuerda entre intentos para no volver a tipearlo si algo falla.
+  String _telefono = '';
   bool _enviando = false;
-
-  @override
-  void dispose() {
-    _telCtrl.dispose();
-    super.dispose();
-  }
 
   String _bs(double v) => 'Bs ${v.toStringAsFixed(2).replaceAll('.', ',')}';
 
@@ -57,17 +54,33 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
       );
       if (ok != true || !mounted) return;
     }
-    final telefono = _telCtrl.text.trim();
-    if (telefono.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ingresa tu teléfono para avisarte')),
-      );
-      return;
-    }
+
+    // Último paso: el cliente revisa a nombre de quién va, qué pidió y
+    // cuánto paga. Devuelve el teléfono, o null si se arrepintió.
+    final telefono = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ConfirmarPedidoPage(telefonoInicial: _telefono),
+      ),
+    );
+    if (telefono == null || !mounted) return;
+    _telefono = telefono;
+
     setState(() => _enviando = true);
     try {
       final carrito = Carrito.instancia;
       final total = carrito.total;
+
+      // Copia de los ítems para el comprobante: el carrito se vacía en
+      // cuanto el pago entra, y sin esta copia saldría en blanco.
+      final comprados = carrito.value
+          .map((e) => ItemCarrito(
+                nombre: e.nombre,
+                precio: e.precio,
+                cantidad: e.cantidad,
+                fotoUrl: e.fotoUrl,
+              ))
+          .toList();
 
       // 1. El pedido se registra primero, en estado pendiente. Su número
       //    es el que identifica el cobro, así que no se descarta.
@@ -101,22 +114,16 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
       }
 
       Carrito.instancia.vaciar();
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          icon: const Icon(Icons.check_circle_rounded,
-              color: Colors.green, size: 48),
-          title: const Text('¡Pedido pagado!'),
-          content: Text(
-            'El negocio recibió tu pedido N.º $pedidoId y el pago. '
-            'Te avisará por WhatsApp cuando esté listo.',
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ComprobantePage(
+            pedidoId: pedidoId,
+            items: comprados,
+            total: total,
+            telefono: telefono,
+            fecha: DateTime.now(),
           ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Entendido'),
-            ),
-          ],
         ),
       );
       if (mounted) Navigator.pop(context, true);
@@ -285,16 +292,6 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _telCtrl,
-                        keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Teléfono para avisarte',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         onPressed: _enviando ? null : _enviarPedido,
@@ -306,10 +303,10 @@ class _MiPedidoPageState extends State<MiPedidoPage> {
                                     strokeWidth: 2,
                                     color: Colors.white),
                               )
-                            : const Icon(Icons.send_rounded),
+                            : const Icon(Icons.arrow_forward_rounded),
                         label: const Padding(
                           padding: EdgeInsets.symmetric(vertical: 12.0),
-                          child: Text('Pagar con QR'),
+                          child: Text('Continuar'),
                         ),
                       ),
                     ],
