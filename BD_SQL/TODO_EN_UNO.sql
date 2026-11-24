@@ -169,11 +169,17 @@ create policy "reservas: leer las propias" on public.reservas
 --  Ejecutar DESPUÉS de 02_rls_lectura.sql
 -- =====================================================================
 
-insert into public.productos (nombre, descripcion, precio) values
-  ('Parrillada para dos', 'Carne, chorizo, yuca y ensalada', 120.00),
-  ('Majadito batido',     'Arroz con charque, huevo y plátano', 35.00),
-  ('Pique macho',         'Carne, papas fritas, huevo y llajua', 55.00),
-  ('Sonso asado',         'Plátano con queso, mantequilla y dulce de leche', 20.00)
+insert into public.productos (nombre, descripcion, precio, imagen_url) values
+  ('Parrillada para dos',             'Carne de res, chorizo criollo, yuca y ensalada fresca',          120.00, 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/parrillada.jpg'),
+  ('Bife de Chorizo a las Brasas',   'Corte jugoso de res a la parrilla servido con papas fritas',      75.00, ''),
+  ('Pique Macho Cruceño',             'Carne salteada, papas fritas, salchichas, huevo frito y llajua',  55.00, 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/piquemacho.jpg'),
+  ('Majadito Batido con Huevo',       'Arroz tostado con charque de res, huevo frito y plátano frito',   35.00, 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/majadito.jpg'),
+  ('Keperí al Horno',                 'Tierno keperí horneado servido con arroz con queso y yuca',       50.00, ''),
+  ('Pacumuto de Res',                 'Brochetas de carne de res con pimentón y cebolla a las brasas',   40.00, ''),
+  ('Pacú a la Parrilla',              'Pescado de río pacú a la parrilla servido con ensalada criolla',  65.00, ''),
+  ('Sonso Asado a la Brasa',          'Masa de yuca con queso a las brasas y mantequilla',              20.00, 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/sonso.jpg'),
+  ('Sopa de Maní Tradicional',        'Sopa cruceña con carne, papas fritas en hilo y arvejas',          25.00, ''),
+  ('Chicha Cruceña Helada',           'Bebida artesanal de maíz bien helada',                            12.00, '')
 on conflict do nothing;
 
 
@@ -913,9 +919,15 @@ $$;
 delete from public.productos
  where nombre not in (
    'Parrillada para dos',
-   'Majadito batido',
-   'Pique macho',
-   'Sonso asado'
+   'Bife de Chorizo a las Brasas',
+   'Pique Macho Cruceño',
+   'Majadito Batido con Huevo',
+   'Keperí al Horno',
+   'Pacumuto de Res',
+   'Pacú a la Parrilla',
+   'Sonso Asado a la Brasa',
+   'Sopa de Maní Tradicional',
+   'Chicha Cruceña Helada'
  );
 
 -- Los negocios de ConectaCruz tienen rubro cargado (Gastronomía,
@@ -942,11 +954,17 @@ create unique index if not exists productos_nombre_unico
 
 -- Ahora sí: completar la carta por si faltara alguno.
 
-insert into public.productos (nombre, descripcion, precio, negocio) values
-  ('Parrillada para dos', 'Carne, chorizo, yuca y ensalada',                120.00, 'Churrasquería El Fogón'),
-  ('Majadito batido',     'Arroz con charque, huevo y plátano',              35.00, 'Churrasquería El Fogón'),
-  ('Pique macho',         'Carne, papas fritas, huevo y llajua',             55.00, 'Churrasquería El Fogón'),
-  ('Sonso asado',         'Plátano con queso, mantequilla y dulce de leche', 20.00, 'Churrasquería El Fogón')
+insert into public.productos (nombre, descripcion, precio, negocio, imagen_url) values
+  ('Parrillada para dos',             'Carne de res, chorizo criollo, yuca y ensalada fresca',          120.00, 'Churrasquería El Fogón', 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/parrillada.jpg'),
+  ('Bife de Chorizo a las Brasas',   'Corte jugoso de res a la parrilla servido con papas fritas',      75.00,  'Churrasquería El Fogón', ''),
+  ('Pique Macho Cruceño',             'Carne salteada, papas fritas, salchichas, huevo frito y llajua',  55.00,  'Churrasquería El Fogón', 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/piquemacho.jpg'),
+  ('Majadito Batido con Huevo',       'Arroz tostado con charque de res, huevo frito y plátano frito',   35.00,  'Churrasquería El Fogón', 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/majadito.jpg'),
+  ('Keperí al Horno',                 'Tierno keperí horneado servido con arroz con queso y yuca',       50.00,  'Churrasquería El Fogón', ''),
+  ('Pacumuto de Res',                 'Brochetas de carne de res con pimentón y cebolla a las brasas',   40.00,  'Churrasquería El Fogón', ''),
+  ('Pacú a la Parrilla',              'Pescado de río pacú a la parrilla servido con ensalada criolla',  65.00,  'Churrasquería El Fogón', ''),
+  ('Sonso Asado a la Brasa',          'Masa de yuca con queso a las brasas y mantequilla',              20.00,  'Churrasquería El Fogón', 'https://ywscetqmxkmjppiomrbv.supabase.co/storage/v1/object/public/negocios/platos/sonso.jpg'),
+  ('Sopa de Maní Tradicional',        'Sopa cruceña con carne, papas fritas en hilo y arvejas',          25.00,  'Churrasquería El Fogón', ''),
+  ('Chicha Cruceña Helada',           'Bebida artesanal de maíz bien helada',                            12.00,  'Churrasquería El Fogón', '')
 on conflict (nombre) do nothing;
 
 

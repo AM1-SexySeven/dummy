@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/supabase_service.dart';
+import '../services/theme_service.dart';
 import 'login_page.dart';
 import 'panel_negocio_page.dart';
 
@@ -155,6 +156,46 @@ class _CuentaPageState extends State<CuentaPage> {
                     child: Text('Iniciar sesión'),
                   ),
                 ),
+
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 12),
+              Text(
+                'Apariencia de la aplicación',
+                style: theme.textTheme.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ValueListenableBuilder<ThemeMode>(
+                valueListenable: ThemeService.modoTema,
+                builder: (context, modoActual, _) {
+                  return SegmentedButton<ThemeMode>(
+                    segments: const [
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.light,
+                        label: Text('Claro'),
+                        icon: Icon(Icons.light_mode_rounded),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.dark,
+                        label: Text('Oscuro'),
+                        icon: Icon(Icons.dark_mode_rounded),
+                      ),
+                      ButtonSegment<ThemeMode>(
+                        value: ThemeMode.system,
+                        label: Text('Sistema'),
+                        icon: Icon(Icons.brightness_auto_rounded),
+                      ),
+                    ],
+                    selected: {modoActual},
+                    onSelectionChanged: (nuevaSeleccion) {
+                      if (nuevaSeleccion.isNotEmpty) {
+                        ThemeService.cambiarModo(nuevaSeleccion.first);
+                      }
+                    },
+                  );
+                },
+              ),
             ],
           ),
         ),

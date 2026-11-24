@@ -17,11 +17,13 @@ import 'pages/reserva_page.dart';
 import 'services/carrito_service.dart';
 import 'services/clima_service.dart';
 import 'services/supabase_service.dart';
+import 'services/theme_service.dart';
 import 'widgets/foto_plato.dart';
 import 'utils/texto.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(ThemeService.init());
   // La bienvenida sale de inmediato; Supabase se inicializa en segundo plano.
   runApp(const ConectaCruzApp());
   unawaited(SupabaseService.init());
@@ -32,19 +34,41 @@ class ConectaCruzApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'ConectaCruz',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFB33A1A), // brasas / rojo parrilla
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      home: const BienvenidaPage(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.modoTema,
+      builder: (context, modo, _) {
+        return MaterialApp(
+          title: 'ConectaCruz',
+          debugShowCheckedModeBanner: false,
+          themeMode: modo,
+          theme: ThemeService.temaClaro,
+          darkTheme: ThemeService.temaOscuro,
+          home: const BienvenidaPage(),
+        );
+      },
     );
   }
+}
+
+/// Botón para alternar rápidamente entre tema Claro y Tema Oscuro.
+Widget _botonTema(BuildContext context) {
+  return ValueListenableBuilder<ThemeMode>(
+    valueListenable: ThemeService.modoTema,
+    builder: (context, modo, _) {
+      final esOscuro = modo == ThemeMode.dark ||
+          (modo == ThemeMode.system &&
+              MediaQuery.platformBrightnessOf(context) == Brightness.dark);
+      return IconButton(
+        icon: Icon(esOscuro ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+        tooltip: esOscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro',
+        onPressed: () {
+          ThemeService.cambiarModo(
+            esOscuro ? ThemeMode.light : ThemeMode.dark,
+          );
+        },
+      );
+    },
+  );
 }
 
 /// Pantalla de bienvenida de ConectaCruz.
@@ -99,6 +123,7 @@ class BienvenidaPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('ConectaCruz'),
         centerTitle: true,
+        actions: [_botonTema(context)],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -259,6 +284,7 @@ class _NegocioPageState extends State<NegocioPage> {
   late Future<CatalogoResult> _futuro;
   final _buscarCtrl = TextEditingController();
   String _filtro = '';
+  String _categoriaSeleccionada = 'Todos';
 
   // Clima de Santa Cruz (open-meteo) y dictado por voz del buscador
   final _voz = SpeechToText();
@@ -382,6 +408,7 @@ class _NegocioPageState extends State<NegocioPage> {
         title: const Text('El Fogón'),
         centerTitle: true,
         actions: [
+          _botonTema(context),
           IconButton(
             onPressed: () =>
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const MapaPage())),
@@ -659,6 +686,35 @@ class _NegocioPageState extends State<NegocioPage> {
           ),
           const SizedBox(height: 8),
 
+          // Chips de filtrado por categoría gastronómica
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final cat in const [
+                  'Todos',
+                  '🔥 Parrillas',
+                  '🍛 Platos Típicos',
+                  '🥗 Guarniciones',
+                  '🥤 Bebidas'
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(cat),
+                      selected: _categoriaSeleccionada == cat,
+                      onSelected: (sel) {
+                        if (sel) {
+                          setState(() => _categoriaSeleccionada = cat);
+                        }
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
           FutureBuilder<CatalogoResult>(
             future: _futuro,
             builder: (context, snap) {
@@ -706,11 +762,25 @@ class _NegocioPageState extends State<NegocioPage> {
                   child: Center(child: Text('Aún no hay platos en el menú')),
                 );
               }
-              // Filtro de búsqueda por nombre
-              final visibles = catalogo.productos
-                  .where((p) => Texto.contieneEnAlguno(
-                    [p.nombre, p.descripcion], _filtro))
-                  .toList();
+              // Filtro de búsqueda por nombre y categoría gastronómica
+              final visibles = catalogo.productos.where((p) {
+                final coincideTexto = Texto.contieneEnAlguno(
+                  [p.nombre, p.descripcion],
+                  _filtro,
+                );
+                final catLimpia = _categoriaSeleccionada
+                    .replaceAll(RegExp(r'[^\w\s]'), '')
+                    .trim()
+                    .toLowerCase();
+                final pCatLimpia = p.categoria
+                    .replaceAll(RegExp(r'[^\w\s]'), '')
+                    .trim()
+                    .toLowerCase();
+                final coincideCategoria = _categoriaSeleccionada == 'Todos' ||
+                    pCatLimpia.contains(catLimpia) ||
+                    catLimpia.contains(pCatLimpia);
+                return coincideTexto && coincideCategoria;
+              }).toList();
               if (visibles.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.all(24),

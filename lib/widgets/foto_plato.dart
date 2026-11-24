@@ -29,7 +29,17 @@ class FotoPlato extends StatelessWidget {
   }
 
   Widget _imagen(BuildContext context) {
-    if (fotoUrl.isNotEmpty) {
+    if (fotoUrl.startsWith('assets/')) {
+      return Image.asset(
+        fotoUrl,
+        width: tamano,
+        height: tamano,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, err, stack) => _respaldoAsset(context),
+      );
+    }
+
+    if (fotoUrl.startsWith('http://') || fotoUrl.startsWith('https://')) {
       return Image.network(
         fotoUrl,
         width: tamano,
@@ -55,16 +65,30 @@ class FotoPlato extends StatelessWidget {
     return _respaldoAsset(context);
   }
 
-  /// Intenta la copia local de la foto; si no existe, el icono de fuego.
+  /// Intenta la copia local de la foto; si no existe o falla, usa parrillada.jpg o el icono de fuego.
   Widget _respaldoAsset(BuildContext context) {
     final archivo = _archivo;
-    if (archivo.isEmpty) return _iconoFuego(context);
+    final ruta = archivo.isNotEmpty
+        ? 'assets/images/platos/$archivo'
+        : 'assets/images/platos/parrillada.jpg';
+
     return Image.asset(
-      'assets/images/platos/$archivo',
+      ruta,
       width: tamano,
       height: tamano,
       fit: BoxFit.cover,
-      errorBuilder: (ctx, err, stack) => _iconoFuego(context),
+      errorBuilder: (ctx, err, stack) {
+        if (ruta != 'assets/images/platos/parrillada.jpg') {
+          return Image.asset(
+            'assets/images/platos/parrillada.jpg',
+            width: tamano,
+            height: tamano,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) => _iconoFuego(context),
+          );
+        }
+        return _iconoFuego(context);
+      },
     );
   }
 
