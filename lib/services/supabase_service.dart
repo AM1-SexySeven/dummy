@@ -1,10 +1,101 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config.dart';
+
+/// Información pública del negocio (fila de la tabla `negocios`).
+///
+/// Los clientes siempre ven estos datos; solo un `dueno` puede cambiarlos
+/// desde el Panel del negocio (RLS en Supabase los protege).
+class InfoNegocio {
+  const InfoNegocio({
+    required this.id,
+    required this.nombre,
+    required this.rubro,
+    required this.direccion,
+    required this.telefono,
+    required this.whatsapp,
+    required this.descripcion,
+    required this.horario,
+    required this.fotoUrl,
+  });
+
+  factory InfoNegocio.fromMap(Map<String, dynamic> map) => InfoNegocio(
+        id: (map['id'] as num?)?.toInt() ?? 1,
+        nombre: '${map['nombre'] ?? ''}'.trim(),
+        rubro: '${map['rubro'] ?? 'Gastronomía'}',
+        direccion: '${map['direccion'] ?? ''}',
+        telefono: '${map['telefono'] ?? ''}',
+        whatsapp: '${map['whatsapp'] ?? ''}',
+        descripcion: '${map['descripcion'] ?? ''}',
+        horario: '${map['horario'] ?? ''}',
+        fotoUrl: '${map['foto_url'] ?? ''}',
+      );
+
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'nombre': nombre,
+        'rubro': rubro,
+        'direccion': direccion,
+        'telefono': telefono,
+        'whatsapp': whatsapp,
+        'descripcion': descripcion,
+        'horario': horario,
+        'foto_url': fotoUrl,
+      };
+
+  /// Datos de respaldo (los mismos que había escritos en la app) por si
+  /// Supabase no está configurado o el teléfono no tiene internet.
+  static const actual = InfoNegocio(
+    id: 1,
+    nombre: 'Churrasquería El Fogón',
+    rubro: 'Gastronomía',
+    direccion: 'Av. Busch 1234, Santa Cruz de la Sierra',
+    telefono: '+591 6775 6448',
+    whatsapp: '+591 6775 6448',
+    descripcion: 'Parrillas y platos tradicionales cruceños para compartir.',
+    horario: 'Mar a Dom · 18:00 – 23:30',
+    fotoUrl: '',
+  );
+
+  final int id;
+  final String nombre;
+  final String rubro;
+  final String direccion;
+  final String telefono;
+  final String whatsapp;
+  final String descripcion;
+  final String horario;
+  final String fotoUrl;
+
+  /// Número pelado para wa.me / tel: (solo dígitos).
+  String get numeroWa =>
+      (whatsapp.isEmpty ? telefono : whatsapp).replaceAll(RegExp(r'[^0-9]'), '');
+
+  InfoNegocio copyWith({
+    String? nombre,
+    String? direccion,
+    String? telefono,
+    String? whatsapp,
+    String? descripcion,
+    String? horario,
+    String? fotoUrl,
+  }) =>
+      InfoNegocio(
+        id: id,
+        nombre: nombre ?? this.nombre,
+        rubro: rubro,
+        direccion: direccion ?? this.direccion,
+        telefono: telefono ?? this.telefono,
+        whatsapp: whatsapp ?? this.whatsapp,
+        descripcion: descripcion ?? this.descripcion,
+        horario: horario ?? this.horario,
+        fotoUrl: fotoUrl ?? this.fotoUrl,
+      );
+}
 
 /// Producto de la Churrasquería (fila de la tabla `productos`).
 class Producto {
@@ -13,31 +104,175 @@ class Producto {
   final String descripcion;
   final double precio;
 
+  /// URL pública de la foto en Supabase Storage (cadena vacía = sin foto).
+  final String fotoUrl;
+  final String _categoriaPropia;
+
   const Producto({
     this.id = '',
     required this.nombre,
     required this.descripcion,
     required this.precio,
-  });
+    this.fotoUrl = '',
+    String categoria = '',
+  }) : _categoriaPropia = categoria;
 
   factory Producto.fromMap(Map<String, dynamic> map) => Producto(
         id: '${map['id'] ?? ''}',
         nombre: '${map['nombre'] ?? ''}',
         descripcion: '${map['descripcion'] ?? ''}',
         precio: (map['precio'] as num?)?.toDouble() ?? 0,
+        fotoUrl: '${map['imagen_url'] ?? map['foto_url'] ?? ''}',
+        categoria: '${map['categoria'] ?? ''}',
       );
+
+  /// Categoría gastronómica del plato para filtrado fácil.
+  String get categoria {
+    if (_categoriaPropia.trim().isNotEmpty) return _categoriaPropia.trim();
+    final text = '$nombre $descripcion'.toLowerCase();
+    if (text.contains('chicha') ||
+        text.contains('limonada') ||
+        text.contains('bebida') ||
+        text.contains('gaseosa') ||
+        text.contains('refresco')) {
+      return 'Bebidas';
+    }
+    if (text.contains('sonso') ||
+        text.contains('arroz con queso') ||
+        text.contains('guarnición')) {
+      return 'Guarniciones';
+    }
+    if (text.contains('majadito') ||
+        text.contains('pique') ||
+        text.contains('sopa') ||
+        text.contains('keperí') ||
+        text.contains('típico')) {
+      return 'Platos Típicos';
+    }
+    return 'Parrillas';
+  }
 
   /// Datos de ejemplo, usados cuando Supabase no está configurado.
   static const List<Producto> ejemplos = [
     Producto(
+      id: 'ejemplo-1',
       nombre: 'Parrillada para dos',
-      descripcion: 'Carne, chorizo, yuca y ensalada',
+      descripcion: 'Carne de res, chorizo criollo, yuca y ensalada fresca',
       precio: 120,
+      fotoUrl: 'assets/images/platos/parrillada.jpg',
+      categoria: 'Parrillas',
     ),
     Producto(
-      nombre: 'Majadito batido',
-      descripcion: 'Arroz con charque, huevo y plátano',
+      id: 'ejemplo-2',
+      nombre: 'Bife de Chorizo a las Brasas',
+      descripcion: 'Corte jugoso de res a la parrilla servido con papas fritas',
+      precio: 75,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-3',
+      nombre: 'Pique Macho Cruceño',
+      descripcion: 'Carne salteada, papas fritas, salchichas, huevo frito y llajua',
+      precio: 55,
+      fotoUrl: 'assets/images/platos/piquemacho.jpg',
+      categoria: 'Platos Típicos',
+    ),
+    Producto(
+      id: 'ejemplo-4',
+      nombre: 'Majadito Batido con Huevo',
+      descripcion: 'Arroz tostado con charque de res, huevo frito y plátano frito',
       precio: 35,
+      fotoUrl: 'assets/images/platos/majadito.jpg',
+      categoria: 'Platos Típicos',
+    ),
+    Producto(
+      id: 'ejemplo-5',
+      nombre: 'Keperí al Horno',
+      descripcion: 'Tierno keperí horneado servido con arroz con queso y yuca',
+      precio: 50,
+      fotoUrl: '',
+      categoria: 'Platos Típicos',
+    ),
+    Producto(
+      id: 'ejemplo-6',
+      nombre: 'Pacumuto de Res',
+      descripcion: 'Brochetas de carne de res con pimentón y cebolla a las brasas',
+      precio: 40,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-7',
+      nombre: 'Pacú a la Parrilla',
+      descripcion: 'Pescado de río pacú a la parrilla servido con ensalada criolla',
+      precio: 65,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-8',
+      nombre: 'Sonso Asado a la Brasa',
+      descripcion: 'Masa de yuca con queso a las brasas y mantequilla',
+      precio: 20,
+      fotoUrl: 'assets/images/platos/sonso.jpg',
+      categoria: 'Guarniciones',
+    ),
+    Producto(
+      id: 'ejemplo-9',
+      nombre: 'Sopa de Maní Tradicional',
+      descripcion: 'Sopa cruceña con carne, papas fritas en hilo y arvejas',
+      precio: 25,
+      fotoUrl: '',
+      categoria: 'Platos Típicos',
+    ),
+    Producto(
+      id: 'ejemplo-10',
+      nombre: 'Chicha Cruceña Helada',
+      descripcion: 'Bebida artesanal de maíz bien helada',
+      precio: 12,
+      fotoUrl: '',
+      categoria: 'Bebidas',
+    ),
+    Producto(
+      id: 'ejemplo-11',
+      nombre: 'Cuadril Especial a la Parrilla',
+      descripcion: 'Corte jugoso a la parrilla con yuca frita y arroz con queso',
+      precio: 85,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-12',
+      nombre: 'Costillitas de Cerdo a la BBQ',
+      descripcion: 'Costillas ahumadas a las brasas bañadas en salsa BBQ criolla',
+      precio: 60,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-13',
+      nombre: 'Tira de Asado a la Cruz',
+      descripcion: 'Tira de asado tierna a las brasas con ensalada de la casa',
+      precio: 70,
+      fotoUrl: '',
+      categoria: 'Parrillas',
+    ),
+    Producto(
+      id: 'ejemplo-14',
+      nombre: 'Arroz con Queso Extra',
+      descripcion: 'Porción generosa de arroz con queso fundido tradicional',
+      precio: 18,
+      fotoUrl: '',
+      categoria: 'Guarniciones',
+    ),
+    Producto(
+      id: 'ejemplo-15',
+      nombre: 'Limonada de la Casa Helada',
+      descripcion: 'Limonada natural helada con hojas de menta',
+      precio: 10,
+      fotoUrl: '',
+      categoria: 'Bebidas',
     ),
   ];
 
@@ -47,6 +282,8 @@ class Producto {
         'nombre': nombre,
         'descripcion': descripcion,
         'precio': precio,
+        'imagen_url': fotoUrl,
+        'categoria': categoria,
       };
 }
 
@@ -72,6 +309,7 @@ class CatalogoResult {
 
 const _claveCacheProductos = 'cache_productos_v1';
 const _claveCacheFecha = 'cache_productos_fecha';
+const _claveCacheNegocio = 'cache_negocio_v1';
 
 /// Punto único de acceso a Supabase (auth + base de datos).
 ///
@@ -99,6 +337,26 @@ class SupabaseService {
 
   /// Usuario con sesión (null si no hay sesión o no hay Supabase).
   static User? get usuario => _client?.auth.currentSession?.user;
+
+  /// Rol del usuario en la tabla `perfiles`: `dueno` o `cliente`.
+  /// Si no hay sesión, Supabase no responde o la fila no existe, devuelve
+  /// `cliente` (el acceso más restrictivo: el panel queda oculto).
+  static Future<String> rolActual() async {
+    final c = _client;
+    final id = usuario?.id;
+    if (c == null || id == null) return 'cliente';
+    try {
+      final data = await c
+          .from('perfiles')
+          .select('rol')
+          .eq('id', id)
+          .maybeSingle();
+      final rol = data?['rol'] as String?;
+      return rol == 'dueno' ? 'dueno' : 'cliente';
+    } catch (_) {
+      return 'cliente';
+    }
+  }
 
   /// Llamar desde `main()` sin esperarla: la app muestra la bienvenida
   /// de inmediato y [listo] avisa cuando el cliente está disponible.
@@ -184,6 +442,110 @@ class SupabaseService {
     }
   }
 
+  // ----------------------------------------------------- información negocio
+
+  /// Guarda la información pública del negocio en el dispositivo.
+  static Future<void> _guardarCacheNegocio(InfoNegocio info) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_claveCacheNegocio, jsonEncode(info.toMap()));
+    } catch (_) {
+      // El caché es un extra: cualquier fallo se ignora.
+    }
+  }
+
+  /// Lee la información guardada en el dispositivo (o null si no hay).
+  static Future<InfoNegocio?> _leerCacheNegocio() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_claveCacheNegocio);
+      if (raw == null) return null;
+      final data = jsonDecode(raw);
+      if (data is! Map) return null;
+      return InfoNegocio.fromMap(Map<String, dynamic>.from(data));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Lee la información del negocio (fila con id 1, el de la actividad).
+  /// Sin configurar o sin internet → caché local o datos de respaldo.
+  static Future<InfoNegocio> cargarNegocio() async {
+    final c = _client;
+    if (c == null) {
+      return await _leerCacheNegocio() ?? InfoNegocio.actual;
+    }
+    try {
+      final row = await c
+          .from('negocios')
+          .select()
+          .order('id', ascending: true)
+          .limit(1)
+          .maybeSingle();
+      if (row == null) {
+        return await _leerCacheNegocio() ?? InfoNegocio.actual;
+      }
+      final info = InfoNegocio.fromMap(Map<String, dynamic>.from(row));
+      await _guardarCacheNegocio(info);
+      return info;
+    } catch (_) {
+      return await _leerCacheNegocio() ?? InfoNegocio.actual;
+    }
+  }
+
+  /// Lee las coordenadas de los negocios (para el mapa).
+  /// Sin configurar o sin internet → lista vacía (el mapa usa el respaldo).
+  static Future<List<Map<String, dynamic>>> cargarCoordenadas() async {
+    final c = _client;
+    if (c == null) return const [];
+    try {
+      final data = await c
+          .from('negocios')
+          .select('nombre, rubro, descripcion, latitud, longitud')
+          .order('id', ascending: true);
+      return (data as List)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Guarda los cambios hechos por el dueño en la información del negocio.
+  /// La RLS permite el UPDATE solo a `dueno`; cualquier otro recibe error.
+  static Future<void> actualizarNegocio(InfoNegocio info) async {
+    final c = _clienteObligado();
+    await c.from('negocios').update({
+      'nombre': info.nombre,
+      'direccion': info.direccion,
+      'telefono': info.telefono,
+      'whatsapp': info.whatsapp,
+      'descripcion': info.descripcion,
+      'horario': info.horario,
+      'foto_url': info.fotoUrl,
+      'actualizado_en': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', info.id);
+    await _guardarCacheNegocio(info);
+  }
+
+  /// Da de alta a otro dueño por su correo (RPC `agregar_dueno`).
+  static Future<void> agregarDueno(String correo) async {
+    final c = _clienteObligado();
+    await c.rpc('agregar_dueno', params: {'p_email': correo.trim()});
+  }
+
+  static List<Producto> _combinarConEjemplos(List<Producto> lista) {
+    final nombresExistentes =
+        lista.map((p) => p.nombre.trim().toLowerCase()).toSet();
+    final combinada = List<Producto>.from(lista);
+    for (final ej in Producto.ejemplos) {
+      if (!nombresExistentes.contains(ej.nombre.trim().toLowerCase())) {
+        combinada.add(ej);
+      }
+    }
+    return combinada;
+  }
+
   /// Carga los productos desde Supabase.
   /// Sin configurar → devuelve los datos de ejemplo.
   /// Si la base de datos no responde → devuelve el caché local si existe
@@ -199,9 +561,11 @@ class SupabaseService {
       final lista = (data as List)
           .map((fila) => Producto.fromMap(Map<String, dynamic>.from(fila as Map)))
           .toList();
-      await _guardarCache(lista);
+      final resultadoFinal =
+          lista.length < 5 ? _combinarConEjemplos(lista) : lista;
+      await _guardarCache(resultadoFinal);
       return CatalogoResult(
-        productos: lista,
+        productos: resultadoFinal,
         desdeCache: false,
         actualizado: DateTime.now(),
       );
@@ -214,22 +578,44 @@ class SupabaseService {
           actualizado: await _leerCacheFecha(),
         );
       }
-      rethrow;
+      return const CatalogoResult(
+        productos: Producto.ejemplos,
+        desdeCache: true,
+      );
     }
   }
 
-  static Future<void> agregarProducto({
+  static Future<Map<String, dynamic>> agregarProducto({
     required String nombre,
     required String descripcion,
     required double precio,
+    String fotoUrl = '',
+    String categoria = 'Parrillas',
   }) async {
     final c = _clienteObligado();
-    await c.from('productos').insert({
+    final datos = <String, dynamic>{
       'negocio': 'Churrasquería El Fogón',
       'nombre': nombre,
       'descripcion': descripcion,
       'precio': precio,
-    });
+      'categoria': categoria,
+      if (fotoUrl.isNotEmpty) 'imagen_url': fotoUrl,
+    };
+    final res = await c.from('productos').insert(datos).select().maybeSingle();
+    return res != null ? Map<String, dynamic>.from(res) : {};
+  }
+
+  static Future<void> eliminarProducto(String id) async {
+    final c = _clienteObligado();
+    await c.from('productos').delete().eq('id', id);
+  }
+
+  static Future<void> actualizarPrecioProducto(
+    String id,
+    double nuevoPrecio,
+  ) async {
+    final c = _clienteObligado();
+    await c.from('productos').update({'precio': nuevoPrecio}).eq('id', id);
   }
 
   // ----------------------------------------------------------- consultas
@@ -262,6 +648,99 @@ class SupabaseService {
     });
   }
 
+  // ------------------------------------------------------- panel negocio
+
+  /// Registra el pedido y devuelve su número.
+  ///
+  /// Ese número es el que después identifica el cobro por QR, así que
+  /// no se descarta: lo necesita `PagoQrPage`.
+  static Future<int> enviarPedido({
+    required String telefono,
+    required String detalle,
+    required double total,
+  }) async {
+    final c = _clienteObligado();
+    // Usa la función SQL `crear_pedido` (BD_SQL/07_crear_pedido.sql):
+    // valida los datos y registra el pedido en una sola transacción.
+    final id = await c.rpc('crear_pedido', params: {
+      'p_nombre': usuario?.userMetadata?['nombre'] ?? usuario?.email ?? '',
+      'p_telefono': telefono,
+      'p_detalle': detalle,
+      'p_total': total,
+    });
+    if (id is int) return id;
+    if (id is num) return id.toInt();
+    return int.parse('$id');
+  }
+
+  /// Guarda la dirección de la foto de un plato.
+  ///
+  /// La RLS solo deja hacer este UPDATE a una cuenta con rol de dueño
+  /// (política «productos: el dueno actualiza», script 11). Cualquier
+  /// otra recibe un error del servidor, no una negativa de la app.
+  static Future<void> actualizarFotoProducto({
+    required String productoId,
+    required String url,
+  }) async {
+    final c = _clienteObligado();
+
+    // `.select()` devuelve las filas que el UPDATE tocó. Sin eso, si el
+    // plato ya no existe —porque lo borraron mientras el catálogo estaba
+    // abierto— Supabase no se queja: actualizar cero filas no es un
+    // error para él, y la foto quedaría en el depósito sin que ningún
+    // plato la apunte.
+    final filas = await c
+        .from('productos')
+        .update({'imagen_url': url})
+        .eq('id', productoId)
+        .select('id');
+
+    if ((filas as List).isEmpty) {
+      throw StateError(
+        'El plato ya no existe en el catálogo. Recargá la lista y '
+        'volvé a intentarlo.',
+      );
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> cargarReservas() async {
+    final c = _clienteObligado();
+    final data =
+        await c.from('reservas').select().order('fecha', ascending: false).limit(50);
+    return (data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> cargarConsultas() async {
+    final c = _clienteObligado();
+    final data = await c
+        .from('consultas')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(50);
+    return (data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> cargarPedidos() async {
+    final c = _clienteObligado();
+    final data = await c
+        .from('pedidos')
+        .select()
+        .order('created_at', ascending: false)
+        .limit(50);
+    return (data as List)
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  static Future<void> actualizarEstadoPedido(int id, String estado) async {
+    final c = _clienteObligado();
+    await c.from('pedidos').update({'estado': estado}).eq('id', id);
+  }
+
   static SupabaseClient _clienteObligado() {
     final c = _client;
     if (c == null) {
@@ -275,3 +754,4 @@ class SupabaseService {
     return c;
   }
 }
+

@@ -1,11 +1,11 @@
-================================================================================
- EVIDENCIA: Verificación de la base de datos de Supabase — ConectaCruz
+﻿================================================================================
+ EVIDENCIA: VerificaciÃ³n de la base de datos de Supabase â€” ConectaCruz
  Proyecto : conecta-cruz  (ref: lhzmwtndbledovzdovqd)
- Región   : South America (São Paulo)
+ RegiÃ³n   : South America (SÃ£o Paulo)
  Verificado: 2026-11-07
 ================================================================================
 
-PRUEBA 1 — API REST leyendo la tabla "productos" (lo que hace la app)
+PRUEBA 1 â€” API REST leyendo la tabla "productos" (lo que hace la app)
 --------------------------------------------------------------------------------
 GET https://lhzmwtndbledovzdovqd.supabase.co/rest/v1/productos
      ?select=nombre,precio&order=precio.desc
@@ -20,20 +20,20 @@ HTTP/1.1 200 OK
   { "nombre": "Sonso asado",         "precio":  20.00 }
 ]
 
--> 4 filas: el menú de la Churrasquería El Fogón se carga desde la nube.
+-> 4 filas: el menÃº de la ChurrasquerÃ­a El FogÃ³n se carga desde la nube.
 
 
-PRUEBA 2 — Seguridad por fila (RLS) en las tablas privadas
+PRUEBA 2 â€” Seguridad por fila (RLS) en las tablas privadas
 --------------------------------------------------------------------------------
 GET /rest/v1/consultas?select=*&limit=1   -> HTTP 200  body: []
 GET /rest/v1/reservas?select=*&limit=1    -> HTTP 200  body: []
 GET /rest/v1/perfiles?select=*&limit=1    -> HTTP 200  body: []
 
--> Sin sesión el usuario NO ve datos de otros: las políticas creadas en
-   docs/supabase_schema.sql están activas y funcionando.
+-> Sin sesiÃ³n el usuario NO ve datos de otros: las polÃ­ticas creadas en
+   BD_SQL/00_esquema_inicial.sql estÃ¡n activas y funcionando.
 
 
-PRUEBA 3 — Script SQL ejecutado en el SQL Editor del dashboard
+PRUEBA 3 â€” Script SQL ejecutado en el SQL Editor del dashboard
 --------------------------------------------------------------------------------
 Resultado del "select nombre, precio from public.productos order by precio desc":
 
@@ -47,7 +47,7 @@ Resultado del "select nombre, precio from public.productos order by precio desc"
   (4 rows)
 
 Tablas creadas: perfiles | productos | consultas | reservas
-Políticas RLS: 3 (perfiles) + 2 (productos) + 2 (consultas) + 2 (reservas)
+PolÃ­ticas RLS: 3 (perfiles) + 2 (productos) + 2 (consultas) + 2 (reservas)
 
 
 ESTADO FINAL
@@ -60,7 +60,7 @@ ESTADO FINAL
 [ ] Confirm email apagado (pendiente en el dashboard)
 [ ] Prueba en emulador (pendiente)
 
-ANÁLISIS DEL CÓDIGO
+ANÃLISIS DEL CÃ“DIGO
 --------------------------------------------------------------------------------
 flutter analyze -> No issues found!
 flutter test    -> 2/2 tests pasando
