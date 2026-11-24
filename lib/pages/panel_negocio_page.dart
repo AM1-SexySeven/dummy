@@ -62,9 +62,36 @@ class _PanelNegocioPageState extends State<PanelNegocioPage>
 
   String _bs(num v) => 'Bs ${v.toStringAsFixed(2).replaceAll('.', ',')}';
 
+  /// Pantalla que ve quien no es dueño si llega hasta acá.
+  Widget _sinPermiso(BuildContext context) => Scaffold(
+        appBar: AppBar(
+            title: const Text('Panel de Administración'), centerTitle: true),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  'Esta sección es solo para el dueño del negocio.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    // Segundo candado: aunque alguien llegue por otra ruta, sin rol de
+    // dueño no se dibuja el panel. El primero es el botón de «Mi cuenta»,
+    // y el tercero son las políticas RLS de Supabase.
+    if (SupabaseService.rol.value != 'dueno') return _sinPermiso(context);
 
     return Scaffold(
       appBar: AppBar(

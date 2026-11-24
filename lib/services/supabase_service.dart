@@ -358,6 +358,17 @@ class SupabaseService {
     }
   }
 
+  /// Rol vigente de la sesión actual. Arranca en `cliente` y se vuelve a
+  /// leer solo cuando cambia la sesión (entrar, salir, renovar el token),
+  /// así que al cerrar sesión nunca queda el rol del usuario anterior.
+  /// Las pantallas lo escuchan con un `ValueListenableBuilder`.
+  static final ValueNotifier<String> rol = ValueNotifier<String>('cliente');
+
+  /// Vuelve a consultar `perfiles` y actualiza [rol].
+  static Future<void> refrescarRol() async {
+    rol.value = await rolActual();
+  }
+
   /// Llamar desde `main()` sin esperarla: la app muestra la bienvenida
   /// de inmediato y [listo] avisa cuando el cliente está disponible.
   static Future<void> init() async {
@@ -371,6 +382,18 @@ class SupabaseService {
     );
     _client = Supabase.instance.client;
     listo.value = true;
+
+    // Cada vez que cambia la sesión se vuelve a leer el rol. Sin esto el
+    // rol quedaba cacheado: si un dueño cerraba sesión y entraba otra
+    // cuenta, la app le seguía mostrando el panel del negocio.
+    _client!.auth.onAuthStateChange.listen((estado) {
+      if (estado.session == null) {
+        rol.value = 'cliente';
+      } else {
+        refrescarRol();
+      }
+    });
+    await refrescarRol();
   }
 
   // ---------------------------------------------------------------- auth

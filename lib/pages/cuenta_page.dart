@@ -15,8 +15,12 @@ class CuentaPage extends StatefulWidget {
 }
 
 class _CuentaPageState extends State<CuentaPage> {
-  /// Se carga UNA vez (al abrir la pantalla).
-  late final Future<String> _rol = SupabaseService.rolActual();
+  @override
+  void initState() {
+    super.initState();
+    // El rol se relee al abrir la pantalla por si cambió en el servidor.
+    SupabaseService.refrescarRol();
+  }
 
   Future<void> _abrirPanel(BuildContext context) async {
     final ok = await Navigator.push(
@@ -73,15 +77,11 @@ class _CuentaPageState extends State<CuentaPage> {
                       ?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
-                FutureBuilder<String>(
-                  future: _rol,
-                  builder: (context, snap) {
-                    final rol = snap.data;
-                    final texto = rol == null
-                        ? 'Leyendo el rol de la cuenta…'
-                        : rol == 'dueno'
-                            ? 'Dueño de negocio'
-                            : 'Cliente';
+                ValueListenableBuilder<String>(
+                  valueListenable: SupabaseService.rol,
+                  builder: (context, rol, _) {
+                    final texto =
+                        rol == 'dueno' ? 'Dueño de negocio' : 'Cliente';
                     return Center(
                       child: Text(
                         texto,
@@ -105,10 +105,9 @@ class _CuentaPageState extends State<CuentaPage> {
               ],
               const SizedBox(height: 32),
               if (correo != null) ...[
-                FutureBuilder<String>(
-                  future: _rol,
-                  builder: (context, snap) {
-                    final rol = snap.data;
+                ValueListenableBuilder<String>(
+                  valueListenable: SupabaseService.rol,
+                  builder: (context, rol, _) {
                     if (rol == 'dueno') {
                       return FilledButton.icon(
                         onPressed: () => _abrirPanel(context),
@@ -133,6 +132,7 @@ class _CuentaPageState extends State<CuentaPage> {
                 OutlinedButton.icon(
                   onPressed: () async {
                     await SupabaseService.cerrarSesion();
+                    SupabaseService.rol.value = 'cliente';
                     if (context.mounted) setState(() {});
                   },
                   icon: const Icon(Icons.logout_rounded),
@@ -148,6 +148,7 @@ class _CuentaPageState extends State<CuentaPage> {
                       context,
                       MaterialPageRoute(builder: (_) => const LoginPage()),
                     );
+                    await SupabaseService.refrescarRol();
                     if (context.mounted) setState(() {});
                   },
                   icon: const Icon(Icons.login_rounded),
