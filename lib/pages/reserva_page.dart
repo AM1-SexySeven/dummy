@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../services/supabase_service.dart';
 
@@ -76,6 +77,46 @@ class _ReservaPageState extends State<ReservaPage> {
         personas: _personas,
         detalle:
             '$_fechaTexto a las ${_hora.format(context)}. ${_ctrl.text.trim()}',
+      );
+      if (!mounted) return;
+      final nombreUsuario = SupabaseService.usuario?.userMetadata?['nombre'] ??
+          SupabaseService.usuario?.email ??
+          'Cliente';
+      final hora = _hora.format(context);
+      final mensaje = StringBuffer()
+        ..write('Hola 👋, soy $nombreUsuario.\n')
+        ..write('Confirmo mi reserva en Churrasquería El Fogón:\n')
+        ..write('$_fechaTexto · $hora · $_personas persona(s).');
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          icon: const Icon(Icons.check_circle_rounded,
+              color: Colors.green, size: 48),
+          title: const Text('¡Reserva confirmada!'),
+          content: Text(
+            'El $_fechaTexto a las $hora para $_personas persona(s).\n\n'
+            '¿Avisas por WhatsApp para que te confirmen la mesa?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Más tarde'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                // El número vigente del negocio se lee de Supabase
+                final info = await SupabaseService.cargarNegocio();
+                final url = Uri.parse(
+                  'https://wa.me/${info.numeroWa}?text=${Uri.encodeComponent(mensaje.toString())}',
+                );
+                if (ctx.mounted) Navigator.pop(ctx);
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              },
+              icon: const Icon(Icons.chat_rounded),
+              label: const Text('Avisar por WhatsApp'),
+            ),
+          ],
+        ),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -225,3 +266,4 @@ class _ReservaPageState extends State<ReservaPage> {
     );
   }
 }
+

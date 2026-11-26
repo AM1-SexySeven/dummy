@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show AuthException;
 
 import '../services/supabase_service.dart';
 
@@ -60,6 +61,8 @@ class _RegistroPageState extends State<RegistroPage> {
 
       // Si Supabase pide confirmar correo, no hay sesión todavía.
       if (SupabaseService.haySesion) {
+        await SupabaseService.refrescarRol();
+        if (!mounted) return;
         Navigator.pop(context, true);
       } else {
         setState(() {
@@ -91,6 +94,24 @@ class _RegistroPageState extends State<RegistroPage> {
     if (texto.contains('SocketException') || texto.contains('Failed to fetch')) {
       return 'Sin conexión. Revisa tu internet';
     }
+    if (texto.contains('rate limit') || texto.contains('rate_limit')) {
+      return 'Supabase bloqueó el envío por límite de correos. '
+          'Espera una hora o desactiva «Confirm email»';
+    }
+    if (texto.contains('Error sending confirmation')) {
+      return 'No se pudo enviar el correo de confirmación. '
+          'Desactiva «Confirm email» en Supabase para las pruebas';
+    }
+    if (texto.contains('Signups not allowed') ||
+        texto.contains('signup_disabled')) {
+      return 'El registro está desactivado en Supabase';
+    }
+    if (texto.contains('invalid') && texto.contains('email')) {
+      return 'Supabase rechazó ese correo como inválido';
+    }
+    // Sin un caso conocido se muestra el motivo real: sin esto cualquier
+    // fallo se veía como «Intente de nuevo» y no había por dónde empezar.
+    if (e is AuthException) return e.message;
     return 'No se pudo crear la cuenta. Intente de nuevo';
   }
 

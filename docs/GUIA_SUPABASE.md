@@ -48,7 +48,7 @@ Son **4 pasos** y tardas como **10 minutos**. Es gratis.
 
 1. Menú izquierdo → **SQL Editor**
 2. Haz clic en **New query**
-3. Pega **todo** el contenido de `docs/supabase_schema.sql`
+3. Pega **todo** el contenido de `BD_SQL/00_esquema_inicial.sql`
 4. Presiona **Run** (▶)
 5. Abajo debería aparecer la tabla con 4 platos
 

@@ -24,6 +24,10 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>La app usa el micrófono para dictar la búsqueda de platos con la voz.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>La app reconoce tu voz para buscar platos y rellenar el buscador.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -66,5 +70,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ConectaCruz usa el micrófono para buscar platos por voz.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>ConectaCruz convierte su voz en texto para filtrar el catálogo.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ConectaCruz necesita acceder a sus fotos para subir la imagen de un plato.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>ConectaCruz usa la cámara para tomar la foto de un plato.</string>
 </dict>
 </plist>

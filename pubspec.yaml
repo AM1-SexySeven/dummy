@@ -36,6 +36,21 @@ dependencies:
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.18.3
   shared_preferences: ^2.5.6
+  url_launcher: ^6.3.2
+  share_plus: ^11.0.0
+  # Mapa de negocios (OpenStreetMap, sin API key)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  # Clima de Santa Cruz (open-meteo, sin API key)
+  http: ^1.2.2
+  # Dictado por voz en el buscador
+  speech_to_text: ^7.0.0
+  # Fotos de los platos: galeria y camara (Supabase Storage)
+  image_picker: ^1.1.2
+  # Dibujo del codigo QR de cobro (Laboratorio extra: pasarela de pago)
+  qr_flutter: ^4.1.0
+  # Carpeta donde se guarda el comprobante descargado
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +77,27 @@ flutter:
   # Assets de la aplicación
   assets:
     - assets/images/logo_fogon.png
+    - assets/images/platos/
+
+  fonts:
+    # Bricolage Grotesque: nombres de platos y titulos, tratados como afiche.
+    - family: Bricolage
+      fonts:
+        - asset: assets/fonts/Bricolage-600.ttf
+          weight: 600
+        - asset: assets/fonts/Bricolage-800.ttf
+          weight: 800
+    # Hanken Grotesk: todo lo funcional, precios incluidos.
+    - family: Hanken
+      fonts:
+        - asset: assets/fonts/Hanken-400.ttf
+          weight: 400
+        - asset: assets/fonts/Hanken-500.ttf
+          weight: 500
+        - asset: assets/fonts/Hanken-600.ttf
+          weight: 600
+        - asset: assets/fonts/Hanken-700.ttf
+          weight: 700
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
